@@ -137,17 +137,18 @@ class Visualizer():
                 idx = 0
                 for label, image in visuals.items():
                     image_numpy = util.tensor2im(image)
-                    label_html_row += '<td>%s</td>' % label
-                    images.append(image_numpy.transpose([2, 0, 1]))
+                    label_html_row += '<td>%s</td>' % label 
+                    try:
+                        from PIL import Image
+                        Image.fromarray(image_numpy)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    images.append(image_numpy)
                     idx += 1
                     if idx % ncols == 0:
                         label_html += '<tr>%s</tr>' % label_html_row
                         label_html_row = ''
-                white_image = np.ones_like(image_numpy.transpose([2, 0, 1])) * 255
-                while idx % ncols != 0:
-                    images.append(white_image)
-                    label_html_row += '<td></td>'
-                    idx += 1
                 if label_html_row != '':
                     label_html += '<tr>%s</tr>' % label_html_row
                 try:
@@ -164,7 +165,7 @@ class Visualizer():
                 try:
                     for label, image in visuals.items():
                         image_numpy = util.tensor2im(image)
-                        self.vis.image(image_numpy.transpose([2, 0, 1]), opts=dict(title=label),
+                        self.vis.image(image_numpy, opts=dict(title=label),
                                        win=self.display_id + idx)
                         idx += 1
                 except VisdomExceptionBase:
