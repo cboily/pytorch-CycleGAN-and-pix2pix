@@ -57,7 +57,10 @@ def save_image(image_numpy, image_path, aspect_ratio=1.0):
     """
 
     image_pil = Image.fromarray(image_numpy)
-    h, w = image_numpy.shape
+    if len(image_numpy.shape) == 2:
+        h, w = image_numpy.shape
+    if len(image_numpy.shape) == 3:
+        h, w, _ = image_numpy.shape
 
     if aspect_ratio > 1.0:
         image_pil = image_pil.resize((h, int(w * aspect_ratio)), Image.BICUBIC)

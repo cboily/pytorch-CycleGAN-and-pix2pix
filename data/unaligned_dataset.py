@@ -2,8 +2,11 @@ import os
 import random
 
 import itk
-from monai.transforms import Compose, ShiftIntensity, ScaleIntensityRange, Resize
+import numpy as np
+from matplotlib import cm
+from monai.transforms import Compose, Resize, ScaleIntensityRange, ShiftIntensity
 from monai.transforms.transform import Transform
+from PIL import Image
 
 from data.base_dataset import BaseDataset, get_transform
 from data.nifty_folder import make_dataset
@@ -72,6 +75,16 @@ class UnalignedDataset(BaseDataset):
             self.B_size += image.shape[0]
             for slice in range(image.shape[0]):
                 self.B_index.append((path, slice))
+        btoA = self.opt.direction == "BtoA"
+        input_nc = (
+            self.opt.output_nc if btoA else self.opt.input_nc
+        )  # get the number of channels of input image
+        output_nc = (
+            self.opt.input_nc if btoA else self.opt.output_nc
+        )  # get the number of channels of output image
+        self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
+        self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
+        print(self.A_size, self.B_size)
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -89,18 +102,10 @@ class UnalignedDataset(BaseDataset):
             0
         ]  # make sure index is within then range
         A_slice = self.A_index[index % self.A_size][1]
-        if self.opt.serial_batches:  # make sure index is within then range
-            index_B = index % self.B_size
-        else:  # randomize the index for domain B to avoid fixed pairs.
-            index_B = random.randint(0, self.B_size - 1)
+        index_B = index % self.B_size
         B_path = self.B_index[index_B][0]  # make sure index is within then range
-        B_slice = self.B_index[index_B][1]        
-        """A_img = Compose(
-            [
-                LoadITKImage(),
-                ITKImageToNumpyd(),
-            ])(A_path)[A_slice, :, :]
-        print("A img shape before", A_img.shape, "  min:", A_img.min(), "  max:", A_img.max())"""
+        B_slice = self.B_index[index_B][1]
+        #print(A_path, A_slice, B_path, B_slice)
         A_img = Compose(
             [
                 LoadITKImage(),
@@ -111,18 +116,9 @@ class UnalignedDataset(BaseDataset):
                     b_min=-1.0,
                     b_max=1.0,
                     clip=True,
-                ), 
-                Resize(spatial_size=(256,256)), 
+                ),
             ]
         )(A_path)[A_slice, :, :]
-        """print("A img shape after", A_img.shape, "  min:", A_img.min(), "  max:", A_img.max())
-        B_img = Compose(
-            [
-                LoadITKImage(),
-                ITKImageToNumpyd(),                
-            ]
-        )(B_path)[B_slice, :, :]
-        print("B img shape before", B_img.shape, "  min:", B_img.min(), "  max:", B_img.max())"""
         B_img = Compose(
             [
                 LoadITKImage(),
@@ -133,15 +129,25 @@ class UnalignedDataset(BaseDataset):
                     b_min=-1.0,
                     b_max=1.0,
                     clip=True,
-                ), 
-                Resize(spatial_size=(256,256)), 
+                ),
             ]
         )(B_path)[B_slice, :, :]
-        print(B_img.shape)
-        #print("B img shape after", B_img.shape, "  min:", B_img.min(), "  max:", B_img.max())
-        
-
-        return {"A": A_img, "B": B_img, "A_paths": A_path, "B_paths": B_path}
+        im = Image.fromarray(np.uint8(cm.gist_earth(A_img) * 255))
+        imb = Image.fromarray(np.uint8(cm.gist_earth(B_img) * 255))
+        A_path_split= os.path.splitext(A_path)
+        A_path_split2= os.path.splitext(A_path_split[0])
+        A_path_slice= os.path.join(A_path_split2[0] + '_' + str(A_slice) + A_path_split2[1] + A_path_split[1])
+        #print(A_path_slice)
+        B_path_split= os.path.splitext(B_path)
+        B_path_split2= os.path.splitext(B_path_split[0])
+        B_path_slice= os.path.join(B_path_split2[0] + '_' + str(B_slice) + B_path_split2[1] + B_path_split[1])
+        #print(B_path_slice)        
+        return {
+            "A": self.transform_A(im),
+            "B": self.transform_B(imb),
+            "A_paths": A_path_slice,
+            "B_paths": B_path_slice,
+        }
 
     def __len__(self):
         """Return the total number of images in the dataset.
