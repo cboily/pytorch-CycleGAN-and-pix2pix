@@ -32,6 +32,8 @@ from data import create_dataset
 from models import create_model
 from util.visualizer import save_images
 from util import html
+from ignite.metrics import PSNR, RootMeanSquaredError, SSIM, MeanAbsoluteError
+from ignite.engine import Engine
 
 try:
     import wandb
@@ -84,14 +86,39 @@ if __name__ == "__main__":
     # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
     if opt.eval:
         model.eval()
+    log_name = os.path.join(opt.checkpoints_dir, opt.name, "metric_log.txt")
+    open(log_name, "w").close()
     for i, data in enumerate(dataset):
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
-        print(dataset.__sizeof__())
-        print("test data:", data.__sizeof__())
         model.set_input(data)  # unpack data from data loader
+        data_name = os.path.split(str(data["A_paths"][0]))[1]
         model.test()  # run inference
         visuals = model.get_current_visuals()  # get image results
+        # create default evaluator for doctests
+
+        def eval_step(engine, batch):
+            i = engine.state.iteration
+            e = engine.state.epoch
+            # print("train", e, i)
+            return batch
+
+        default_evaluator = Engine(eval_step)
+        mae = MeanAbsoluteError()
+        psnr = PSNR(data_range=-1.1)
+        rmse = RootMeanSquaredError()
+        ssim = SSIM(data_range=-1.1)
+        mae.attach(default_evaluator, "mae")
+        psnr.attach(default_evaluator, "psnr")
+        rmse.attach(default_evaluator, "rmse")
+        ssim.attach(default_evaluator, "ssim")
+        state = default_evaluator.run(
+            [[visuals["fake_A"], visuals["real_B"]]], epoch_length=1, max_epochs=1
+        )
+        # print(state.metrics)
+        with open(log_name, "a") as log_file:
+            log_file.write(data_name)
+            log_file.write(", %s\n" % state.metrics)  # save the metrics values
         img_path = model.get_image_paths()  # get image paths
         if i % 5 == 0:  # save images to an HTML file
             print("processing (%04d)-th image... %s" % (i, img_path))
@@ -103,4 +130,5 @@ if __name__ == "__main__":
             width=opt.display_winsize,
             use_wandb=opt.use_wandb,
         )
+
     webpage.save()  # save the HTML
