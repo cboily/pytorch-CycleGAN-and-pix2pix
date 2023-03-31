@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
     if opt.eval:
         model.eval()
-    log_name = os.path.join(opt.checkpoints_dir, opt.name, "metric_log.txt")
+    log_name = os.path.join(opt.results_dir, opt.name, "metric_log.txt")
     open(log_name, "w").close()
     for i, data in enumerate(dataset):
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
