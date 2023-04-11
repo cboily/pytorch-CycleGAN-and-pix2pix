@@ -34,7 +34,10 @@ from util.visualizer import save_images
 from util import html
 from ignite.metrics import PSNR, RootMeanSquaredError, SSIM, MeanAbsoluteError
 from ignite.engine import Engine
-
+from torchmetrics.functional import mean_absolute_error
+#from torchmetrics import MeanAbsoluteError
+import torch
+import matplotlib.pyplot as plt
 try:
     import wandb
 except ImportError:
@@ -103,8 +106,17 @@ if __name__ == "__main__":
             # print("train", e, i)
             return batch
 
+        diff= torch.sub(visuals["fake_B"], visuals["real_B"])
+        #plt.figure()
+        #plt.plot(diff[0,0,:,:])
+        test_mae=mean_absolute_error(visuals["fake_B"], visuals["real_B"])        
+        print("test_mae:" ,test_mae)
+        #meanabsoluteerror = MeanAbsoluteError()
+        #test_mae_class = meanabsoluteerror(visuals["fake_A"], visuals["real_B"])
+        #print("test_mae class:" ,test_mae_class)
         default_evaluator = Engine(eval_step)
         mae = MeanAbsoluteError()
+        #mae.reset()       
         psnr = PSNR(data_range=-1.1)
         rmse = RootMeanSquaredError()
         ssim = SSIM(data_range=-1.1)
@@ -113,11 +125,13 @@ if __name__ == "__main__":
         rmse.attach(default_evaluator, "rmse")
         ssim.attach(default_evaluator, "ssim")
         state = default_evaluator.run(
-            [[visuals["fake_A"], visuals["real_B"]]], epoch_length=1, max_epochs=1
+            [[visuals["fake_B"], visuals["real_B"]]], epoch_length=1, max_epochs=1
         )
         # print(state.metrics)
         with open(log_name, "a") as log_file:
             log_file.write(data_name)
+            log_file.write(" 'mae_torch': %s" % test_mae)
+            #log_file.write(" 'mae_torch_class': %s" % test_mae_class)
             log_file.write(", %s\n" % state.metrics)  # save the metrics values
         img_path = model.get_image_paths()  # get image paths
         if i % 5 == 0:  # save images to an HTML file
