@@ -93,7 +93,7 @@ class BaseModel(ABC):
         for name in self.model_names:
             if isinstance(name, str):
                 net = getattr(self, 'net' + name)
-                net.eval()
+                net.eval()            
 
     def test(self):
         """Forward function used in test time.
@@ -101,9 +101,11 @@ class BaseModel(ABC):
         This function wraps <forward> function in no_grad() so we don't save intermediate steps for backprop
         It also calls <compute_visuals> to produce additional visualization results
         """
+        self.eval()
         with torch.no_grad():
             self.forward()
             self.compute_visuals()
+            
 
     def compute_visuals(self):
         """Calculate additional output images for visdom and HTML visualization"""
