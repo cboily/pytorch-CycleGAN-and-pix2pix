@@ -2,12 +2,31 @@
 
 It also includes common transformation functions (e.g., get_transform, __scale_width), which can be later used in subclasses.
 """
+import itk
 import random
 import numpy as np
 import torch.utils.data as data
 from PIL import Image
+from monai.transforms import Compose, Resize, ScaleIntensityRange, ShiftIntensity
+from monai.transforms.transform import Transform
 import torchvision.transforms as transforms
 from abc import ABC, abstractmethod
+
+class ITKImageToNumpyd(Transform):
+    def __init__(self):
+        pass
+
+    def __call__(self, data):
+        return itk.array_from_image(data)
+
+
+class LoadITKImage(Transform):
+    def __init__(self, pixel_type=itk.F):
+        self.pixel_type = pixel_type
+
+    def __call__(self, key):
+        d = itk.imread(key, pixel_type=self.pixel_type)
+        return d
 
 
 class BaseDataset(data.Dataset, ABC):
@@ -80,6 +99,21 @@ def get_params(opt, size):
 
 def get_transform(opt, params=None, grayscale=False, method=transforms.InterpolationMode.BICUBIC, convert=True):
     transform_list = []
+    if 'nifti' in opt.preprocess:
+        Compose(
+            [
+                LoadITKImage(),
+                ITKImageToNumpyd(),
+                ScaleIntensityRange(
+                    a_min=-600.0,
+                    a_max=400.0,
+                    b_min=-1.0,
+                    b_max=1.0,
+                    clip=True,
+                ),
+            ]
+        )
+    
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
     if 'resize' in opt.preprocess:
