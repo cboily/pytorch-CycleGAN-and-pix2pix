@@ -61,7 +61,7 @@ with torch.no_grad():
         # hard-code some parameters for test
         opt.num_threads = 0  # test code only supports num_threads = 0
         opt.batch_size = 1  # test code only supports batch_size = 1
-        # opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = (
             True  # no flip; comment this line if results on flipped images are needed.
         )
@@ -71,7 +71,7 @@ with torch.no_grad():
         dataset = create_dataset(
             opt
         )  # create a dataset given opt.dataset_mode and other options
-        opt.serial_batches = True
+        # opt.serial_batches = False
         model = create_model(opt)  # create a model given opt.model and other options
         model.setup(opt)  # regular setup: load and print networks; create schedulers
 
@@ -100,7 +100,8 @@ with torch.no_grad():
         # test with eval mode. This only affects layers like batchnorm and dropout.
         # For [pix2pix]: we use batchnorm and dropout in the original pix2pix. You can experiment it with and without eval() mode.
         # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
-        model.eval()
+        if opt.eval:
+            model.eval()
         log_name = os.path.join(opt.results_dir, opt.name, "metric_log.txt")
         open(log_name, "w").close()
         for i, data in enumerate(dataset):
@@ -110,8 +111,6 @@ with torch.no_grad():
             data_name = os.path.split(str(data["A_paths"][0]))[1]
             model.test()  # run inference
             visuals = model.get_current_visuals()  # get image results
-            print(visuals["fake_B"].max())
-            print(visuals["fake_B"].min())
             out_transforms = Compose(
                 [
                     ScaleIntensityRange(
@@ -125,29 +124,28 @@ with torch.no_grad():
             )
             fakeB = out_transforms(visuals["fake_B"])
             realB = out_transforms(visuals["real_B"])
-            # print(fakeB.min())
             # create default evaluator for doctests
             def eval_step(_, batch):
                 return batch
 
-            test_mae = mean_absolute_error(visuals["fake_B"], visuals["real_B"])
+            # test_mae = mean_absolute_error(visuals["fake_B"], visuals["real_B"])
             # print("test_mae:", test_mae)
             default_evaluator = Engine(eval_step)
             mae = MeanAbsoluteError()
-            psnr = PSNR(data_range=-1.1)
+            psnr = PSNR(data_range=-600.400)
             rmse = RootMeanSquaredError()
-            ssim = SSIM(data_range=-1.1)
+            ssim = SSIM(data_range=-600.400)
             mae.attach(default_evaluator, "mae")
             psnr.attach(default_evaluator, "psnr")
             rmse.attach(default_evaluator, "rmse")
             ssim.attach(default_evaluator, "ssim")
             state = default_evaluator.run(
-                [[visuals["fake_B"], visuals["real_B"]]], epoch_length=1, max_epochs=1
-            )
-            # print(state.metrics)
+                [[fakeB, realB]], epoch_length=1, max_epochs=1
+            )  # visuals["fake_B"], visuals["real_B"]
+            print(state.metrics)
             with open(log_name, "a") as log_file:
                 log_file.write(data_name)
-                log_file.write(" 'mae_torch': %s" % test_mae)
+                # log_file.write(" 'mae_torch': %s" % test_mae)
                 # log_file.write(" 'mae_torch_class': %s" % test_mae_class)
                 log_file.write(", %s\n" % state.metrics)  # save the metrics values
             img_path = model.get_image_paths()  # get image paths
