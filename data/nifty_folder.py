@@ -9,7 +9,8 @@ from monai.transforms import LoadImage
 import os
 
 IMG_EXTENSIONS = [
-    '.nii.gz', '.nii',
+    ".nii.gz",
+    ".nii",
 ]
 
 
@@ -19,14 +20,14 @@ def is_nifty_file(filename):
 
 def make_dataset(dir, max_dataset_size=float("inf")):
     images = []
-    assert os.path.isdir(dir), '%s is not a valid directory' % dir
+    assert os.path.isdir(dir), "%s is not a valid directory" % dir
 
     for root, _, fnames in sorted(os.walk(dir)):
         for fname in fnames:
             if is_nifty_file(fname):
                 path = os.path.join(root, fname)
                 images.append(path)
-    return images[:min(max_dataset_size, len(images))]
+    return images[: min(max_dataset_size, len(images))]
 
 
 def default_loader(path):
@@ -34,13 +35,15 @@ def default_loader(path):
 
 
 class NiftyFolder(data.Dataset):
-
-    def __init__(self, root, transform=None, return_paths=False,
-                 loader=default_loader):
+    def __init__(self, root, transform=None, return_paths=False, loader=default_loader):
         imgs = make_dataset(root)
         if len(imgs) == 0:
-            raise(RuntimeError("Found 0 nifty in: " + root + "\n"
-                               "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
+            raise (
+                RuntimeError(
+                    "Found 0 nifty in: " + root + "\n"
+                    "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)
+                )
+            )
 
         self.root = root
         self.imgs = imgs

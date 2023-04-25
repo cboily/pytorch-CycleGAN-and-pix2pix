@@ -4,7 +4,13 @@ import random
 import itk
 import numpy as np
 from matplotlib import cm
-from monai.transforms import Compose, Resize, ScaleIntensityRange, ShiftIntensity, ToTensor
+from monai.transforms import (
+    Compose,
+    Resize,
+    ScaleIntensityRange,
+    ShiftIntensity,
+    ToTensor,
+)
 from monai.transforms.transform import Transform
 from PIL import Image
 
@@ -61,22 +67,22 @@ class UnalignedDataset(BaseDataset):
         self.B_paths = sorted(
             make_dataset(self.dir_B)
         )  # load images from '/path/to/data/trainB'
-        self.A_size = 0  # get the size of dataset A
+        self.A_size = 0
         self.A_index = []
         for path in self.A_paths:
             image = itk.array_from_image(itk.imread(path, pixel_type=self.pixel_type))
-            self.A_size += image.shape[0]
+            self.A_size += image.shape[0]  # get the size of dataset A
             for slice in range(image.shape[0]):
                 self.A_index.append((path, slice))
                 if self.A_size > opt.max_dataset_size:
                     break
             if self.A_size > opt.max_dataset_size:
-                    break
-        self.B_size = 0  # get the size of dataset B
+                break
+        self.B_size = 0
         self.B_index = []
         for path in self.B_paths:
             image = itk.array_from_image(itk.imread(path, pixel_type=self.pixel_type))
-            self.B_size += image.shape[0]
+            self.B_size += image.shape[0]  # get the size of dataset B
             for slice in range(image.shape[0]):
                 self.B_index.append((path, slice))
                 if self.B_size > opt.max_dataset_size:
@@ -114,8 +120,8 @@ class UnalignedDataset(BaseDataset):
         index_B = index % self.B_size
         B_path = self.B_index[index_B][0]  # make sure index is within then range
         B_slice = self.B_index[index_B][1]
-        #print(A_path, A_slice, B_path, B_slice)
-        print(B_path, B_slice)
+        # print(A_path, A_slice, B_path, B_slice)
+        # print(B_path, B_slice)
         transform = Compose(
             [
                 LoadITKImage(),
@@ -127,29 +133,33 @@ class UnalignedDataset(BaseDataset):
                     b_max=1.0,
                     clip=True,
                 ),
-                #ToTensor(),
+                # ToTensor(),
             ]
         )
-        A_img = transform(A_path)[A_slice, :, :] 
-        B_img = transform(B_path)[B_slice, :, :]        
-        #print(A_img.size())
-        #print(B_img.size())
-        #print("Min before image",A_img.min())
-        #print("Max before image",A_img.max())
+        A_img = transform(A_path)[A_slice, :, :]
+        B_img = transform(B_path)[B_slice, :, :]
+        # print(A_img.size())
+        # print(B_img.size())
+        # print("Min before image",A_img.min())
+        # print("Max before image",A_img.max())
         im = Image.fromarray(np.uint8(cm.gist_earth(A_img) * 255))
         imb = Image.fromarray(np.uint8(cm.gist_earth(B_img) * 255))
-        #print("Before image:",A_img.min(), A_img.max())#print("Min after image",)
-        #print(im.__sizeof__())
-        #print(imb.__sizeof__())
-        #print("After  image:",im.getextrema())
-        A_path_split= os.path.splitext(A_path)
-        A_path_split2= os.path.splitext(A_path_split[0])
-        A_path_slice= os.path.join(A_path_split2[0] + '_' + str(A_slice) + A_path_split2[1] + A_path_split[1])
-        #print(A_path_slice)
-        B_path_split= os.path.splitext(B_path)
-        B_path_split2= os.path.splitext(B_path_split[0])
-        B_path_slice= os.path.join(B_path_split2[0] + '_' + str(B_slice) + B_path_split2[1] + B_path_split[1])
-        #print(B_path_slice)        
+        # print("Before image:",A_img.min(), A_img.max())#print("Min after image",)
+        # print(im.__sizeof__())
+        # print(imb.__sizeof__())
+        # print("After  image:",im.getextrema())
+        A_path_split = os.path.splitext(A_path)
+        A_path_split2 = os.path.splitext(A_path_split[0])
+        A_path_slice = os.path.join(
+            A_path_split2[0] + "_" + str(A_slice) + A_path_split2[1] + A_path_split[1]
+        )
+        # print(A_path_slice)
+        B_path_split = os.path.splitext(B_path)
+        B_path_split2 = os.path.splitext(B_path_split[0])
+        B_path_slice = os.path.join(
+            B_path_split2[0] + "_" + str(B_slice) + B_path_split2[1] + B_path_split[1]
+        )
+        # print(B_path_slice)
         return {
             "A": self.transform_A(im),
             "B": self.transform_B(imb),
