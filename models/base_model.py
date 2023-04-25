@@ -93,7 +93,10 @@ class BaseModel(ABC):
         for name in self.model_names:
             if isinstance(name, str):
                 net = getattr(self, 'net' + name)
-                net.eval()            
+                net.eval()
+
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     def test(self):
         """Forward function used in test time.
@@ -103,6 +106,7 @@ class BaseModel(ABC):
         """
         self.eval()
         with torch.no_grad():
+            self.print_networks(False)
             self.forward()
             self.compute_visuals()
             
@@ -181,6 +185,7 @@ class BaseModel(ABC):
         Parameters:
             epoch (int) -- current epoch; used in the file name '%s_net_%s.pth' % (epoch, name)
         """
+        
         for name in self.model_names:
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (epoch, name)
@@ -211,11 +216,17 @@ class BaseModel(ABC):
             if isinstance(name, str):
                 net = getattr(self, 'net' + name)
                 num_params = 0
-                for param in net.parameters():
+                trainable_params = 0
+                for param in net.parameters():  
                     num_params += param.numel()
+                    if self.isTrain ==False:
+                        param.requires_grad =False
+                    if param.requires_grad:
+                        trainable_params += param.numel()
                 if verbose:
                     print(net)
                 print('[Network %s] Total number of parameters : %.3f M' % (name, num_params / 1e6))
+                print('[Network %s] Total number of trainable parameters : %.3f M' % (name, trainable_params / 1e6))
         print('-----------------------------------------------')
 
     def set_requires_grad(self, nets, requires_grad=False):

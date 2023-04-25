@@ -301,7 +301,6 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
             interpolatesv = alpha * real_data + ((1 - alpha) * fake_data)
         else:
             raise NotImplementedError('{} not implemented'.format(type))
-        interpolatesv.requires_grad_(True)
         disc_interpolates = netD(interpolatesv)
         gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolatesv,
                                         grad_outputs=torch.ones(disc_interpolates.size()).to(device),
