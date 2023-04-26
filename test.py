@@ -35,6 +35,11 @@ from util import html
 from ignite.metrics import PSNR, RootMeanSquaredError, SSIM, MeanAbsoluteError
 from ignite.engine import Engine
 from torchmetrics.functional import mean_absolute_error
+from torchmetrics import (
+    StructuralSimilarityIndexMeasure,
+    PeakSignalNoiseRatio,
+    MeanSquaredError,
+)
 from monai.transforms import (
     Compose,
     Resize,
@@ -61,7 +66,7 @@ with torch.no_grad():
         # hard-code some parameters for test
         opt.num_threads = 0  # test code only supports num_threads = 0
         opt.batch_size = 1  # test code only supports batch_size = 1
-        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        # opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = (
             True  # no flip; comment this line if results on flipped images are needed.
         )
@@ -124,17 +129,34 @@ with torch.no_grad():
             )
             fakeB = out_transforms(visuals["fake_B"])
             realB = out_transforms(visuals["real_B"])
+            print("Fa", fakeB.min(), fakeB.max())
             # create default evaluator for doctests
             def eval_step(_, batch):
                 return batch
 
-            # test_mae = mean_absolute_error(visuals["fake_B"], visuals["real_B"])
-            # print("test_mae:", test_mae)
+            test_mae = mean_absolute_error(fakeB, realB)
+            testssim = StructuralSimilarityIndexMeasure().to(device="cuda:0")
+            testpsnr = PeakSignalNoiseRatio().to(device="cuda:0")
+            testrmse = MeanSquaredError(squared=False).to(device="cuda:0")
+            test_rmse = testrmse(fakeB, realB)
+            test_ssim = testssim(fakeB, realB)
+            test_psnr = testpsnr(fakeB, realB)
+            print(
+                "test_mae:",
+                test_mae.item(),
+                "psnr:",
+                test_psnr.item(),
+                "rmse:",
+                test_rmse.item(),
+                "ssim:",
+                test_ssim.item(),
+            )
+
             default_evaluator = Engine(eval_step)
             mae = MeanAbsoluteError()
-            psnr = PSNR(data_range=-600.400)
+            psnr = PSNR(data_range=1000)
             rmse = RootMeanSquaredError()
-            ssim = SSIM(data_range=-600.400)
+            ssim = SSIM(data_range=1000)
             mae.attach(default_evaluator, "mae")
             psnr.attach(default_evaluator, "psnr")
             rmse.attach(default_evaluator, "rmse")
@@ -145,8 +167,16 @@ with torch.no_grad():
             print(state.metrics)
             with open(log_name, "a") as log_file:
                 log_file.write(data_name)
-                # log_file.write(" 'mae_torch': %s" % test_mae)
-                # log_file.write(" 'mae_torch_class': %s" % test_mae_class)
+                log_file.write(
+                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}"
+                    % (
+                        test_mae.item(),
+                        test_psnr.item(),
+                        test_rmse.item(),
+                        test_ssim.item(),
+                    )
+                )
+
                 log_file.write(", %s\n" % state.metrics)  # save the metrics values
             img_path = model.get_image_paths()  # get image paths
             if i % 5 == 0:  # save images to an HTML file
