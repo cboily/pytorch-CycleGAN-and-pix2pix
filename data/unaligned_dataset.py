@@ -55,10 +55,10 @@ class UnalignedDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, opt.phase + "A"
+            opt.dataroot, opt.phase + "A" #"MVCT" #
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, opt.phase + "B"
+            opt.dataroot, opt.phase + "B" #"KVCT_fitted" #
         )  # create a path '/path/to/data/trainB'
 
         self.A_paths = sorted(
@@ -74,8 +74,6 @@ class UnalignedDataset(BaseDataset):
             self.A_size += image.shape[0]  # get the size of dataset A
             for slice in range(image.shape[0]):
                 self.A_index.append((path, slice))
-                if self.A_size > opt.max_dataset_size:
-                    break
             if self.A_size > opt.max_dataset_size:
                 break
         self.B_size = 0
@@ -85,8 +83,6 @@ class UnalignedDataset(BaseDataset):
             self.B_size += image.shape[0]  # get the size of dataset B
             for slice in range(image.shape[0]):
                 self.B_index.append((path, slice))
-                if self.B_size > opt.max_dataset_size:
-                    break
             if self.B_size > opt.max_dataset_size:
                 break
 
@@ -100,6 +96,7 @@ class UnalignedDataset(BaseDataset):
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
         print(self.A_size, self.B_size)
+        print(self.A_index.__len__())
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -113,13 +110,15 @@ class UnalignedDataset(BaseDataset):
             A_paths (str)    -- image paths
             B_paths (str)    -- image paths
         """
+        # print(index)
+        # print("result:",index % self.A_size)
         A_path = self.A_index[index % self.A_size][
             0
         ]  # make sure index is within then range
         A_slice = self.A_index[index % self.A_size][1]
         index_B = index % self.B_size
-        B_path = self.B_index[index_B][0]  # make sure index is within then range
-        B_slice = self.B_index[index_B][1]
+        B_path = self.B_index[index % self.A_size][0]  # make sure index is within then range
+        B_slice = self.B_index[index % self.A_size][1]
         # print(A_path, A_slice, B_path, B_slice)
         # print(B_path, B_slice)
         transform = Compose(

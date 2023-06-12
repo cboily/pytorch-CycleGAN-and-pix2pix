@@ -27,30 +27,27 @@ See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-p
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
 import os
-from options.test_options import TestOptions
-from data import create_dataset
-from models import create_model
-from util.visualizer import save_images
-from util import html
-from ignite.metrics import PSNR, RootMeanSquaredError, SSIM, MeanAbsoluteError
-from ignite.engine import Engine
-from torchmetrics.functional import mean_absolute_error
-from torchmetrics import (
-    StructuralSimilarityIndexMeasure,
-    PeakSignalNoiseRatio,
-    MeanSquaredError,
-)
-from monai.transforms import (
-    Compose,
-    Resize,
-    ScaleIntensityRange,
-    ShiftIntensity,
-    ToTensor,
-)
+from pprint import pprint
+
+import numpy as np
 
 # from torchmetrics import MeanAbsoluteError
 import torch
-import matplotlib.pyplot as plt
+from ignite.engine import Engine
+from ignite.metrics import PSNR, SSIM, MeanAbsoluteError, RootMeanSquaredError
+from monai.transforms import Compose, ScaleIntensityRange
+from torchmetrics import (
+    MeanSquaredError,
+    PeakSignalNoiseRatio,
+    StructuralSimilarityIndexMeasure,
+)
+from torchmetrics.functional import mean_absolute_error
+
+from data import create_dataset
+from models import create_model
+from options.test_options import TestOptions
+from util import html
+from util.visualizer import save_images
 
 try:
     import wandb
@@ -114,8 +111,26 @@ with torch.no_grad():
                 break
             model.set_input(data)  # unpack data from data loader
             data_name = os.path.split(str(data["A_paths"][0]))[1]
+            print(data_name)
             model.test()  # run inference
             visuals = model.get_current_visuals()  # get image results
+            """mask_3d = np.load(
+                os.path.join(opt.dataroot, "RT_struct", data_name.split("-")[0])
+                + "-fitted_rtstruct_kvct.npy"
+            )
+            slice = int(data_name.split("_")[1].split(".")[0])
+            mask = mask_3d[slice, :, :]
+            mask = mask.astype(np.uint8)
+            fakeB = visuals["fake_B"][0][0].cpu().data.numpy()
+            for iy, ix in np.ndindex(mask.shape):
+                if mask[iy][ix] == 0:
+                    fakeB[iy][ix] = 0
+            realB = visuals["real_B"][0][0].cpu().data.numpy()
+            for iy, ix in np.ndindex(mask.shape):
+                if mask[iy][ix] == 0:
+                    realB[iy][ix] = 0
+            visuals["fake_B"][0][0] = torch.from_numpy(fakeB).float().to("cuda:0")
+            visuals["real_B"][0][0] = torch.from_numpy(realB).float().to("cuda:0")"""
             out_transforms = Compose(
                 [
                     ScaleIntensityRange(
@@ -141,16 +156,6 @@ with torch.no_grad():
             test_rmse = testrmse(fakeB, realB)
             test_ssim = testssim(fakeB, realB)
             test_psnr = testpsnr(fakeB, realB)
-            print(
-                "test_mae:",
-                test_mae.item(),
-                "psnr:",
-                test_psnr.item(),
-                "rmse:",
-                test_rmse.item(),
-                "ssim:",
-                test_ssim.item(),
-            )
 
             default_evaluator = Engine(eval_step)
             mae = MeanAbsoluteError()
@@ -163,12 +168,12 @@ with torch.no_grad():
             ssim.attach(default_evaluator, "ssim")
             state = default_evaluator.run(
                 [[fakeB, realB]], epoch_length=1, max_epochs=1
-            )  # visuals["fake_B"], visuals["real_B"]
-            print(state.metrics)
+            )
+            pprint(state.metrics)
             with open(log_name, "a") as log_file:
                 log_file.write(data_name)
                 log_file.write(
-                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}"
+                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s }"
                     % (
                         test_mae.item(),
                         test_psnr.item(),

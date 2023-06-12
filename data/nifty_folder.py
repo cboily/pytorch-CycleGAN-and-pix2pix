@@ -13,9 +13,15 @@ IMG_EXTENSIONS = [
     ".nii",
 ]
 
+NUMPY_EXTENSIONS = [".npy"]
+
 
 def is_nifty_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
+
+
+def is_numpy_file(filename):
+    return any(filename.endswith(extension) for extension in NUMPY_EXTENSIONS)
 
 
 def make_dataset(dir, max_dataset_size=float("inf")):
@@ -27,6 +33,36 @@ def make_dataset(dir, max_dataset_size=float("inf")):
             if is_nifty_file(fname):
                 path = os.path.join(root, fname)
                 images.append(path)
+            if is_numpy_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+
+    return images[: min(max_dataset_size, len(images))]
+
+
+def make_dataset_numpy(dir, max_dataset_size=float("inf")):
+    images = []
+    assert os.path.isdir(dir), "%s is not a valid directory" % dir
+
+    for root, _, fnames in sorted(os.walk(dir)):
+        for fname in fnames:
+            if is_numpy_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+
+    return images[: min(max_dataset_size, len(images))]
+
+
+def make_dataset(dir, max_dataset_size=float("inf")):
+    images = []
+    assert os.path.isdir(dir), "%s is not a valid directory" % dir
+
+    for root, _, fnames in sorted(os.walk(dir)):
+        for fname in fnames:
+            if is_nifty_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+
     return images[: min(max_dataset_size, len(images))]
 
 
