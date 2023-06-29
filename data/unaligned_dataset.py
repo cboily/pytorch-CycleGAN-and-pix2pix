@@ -55,10 +55,10 @@ class UnalignedDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, opt.phase + "A" #"MVCT" #
+            opt.dataroot, opt.phase + "A"  # "MVCT" #
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, opt.phase + "B" #"KVCT_fitted" #
+            opt.dataroot, opt.phase + "B"  # "KVCT_fitted" #
         )  # create a path '/path/to/data/trainB'
 
         self.A_paths = sorted(
@@ -117,7 +117,9 @@ class UnalignedDataset(BaseDataset):
         ]  # make sure index is within then range
         A_slice = self.A_index[index % self.A_size][1]
         index_B = index % self.B_size
-        B_path = self.B_index[index % self.A_size][0]  # make sure index is within then range
+        B_path = self.B_index[index % self.A_size][
+            0
+        ]  # make sure index is within then range
         B_slice = self.B_index[index % self.A_size][1]
         # print(A_path, A_slice, B_path, B_slice)
         # print(B_path, B_slice)
@@ -150,13 +152,21 @@ class UnalignedDataset(BaseDataset):
         A_path_split = os.path.splitext(A_path)
         A_path_split2 = os.path.splitext(A_path_split[0])
         A_path_slice = os.path.join(
-            A_path_split2[0] + "_" + str(A_slice) + A_path_split2[1] + A_path_split[1]
+            A_path_split2[0]
+            + "_"
+            + f"{A_slice:04d}"
+            + A_path_split2[1]
+            + A_path_split[1]
         )
         # print(A_path_slice)
         B_path_split = os.path.splitext(B_path)
         B_path_split2 = os.path.splitext(B_path_split[0])
         B_path_slice = os.path.join(
-            B_path_split2[0] + "_" + str(B_slice) + B_path_split2[1] + B_path_split[1]
+            B_path_split2[0]
+            + "_"
+            + f"{B_slice:04d}"
+            + B_path_split2[1]
+            + B_path_split[1]
         )
         # print(B_path_slice)
         return {
