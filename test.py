@@ -28,7 +28,7 @@ See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-a
 """
 import os
 from pprint import pprint
-
+import SimpleITK as sitk
 import numpy as np
 
 # from torchmetrics import MeanAbsoluteError
@@ -56,14 +56,13 @@ except ImportError:
         'Warning: wandb package cannot be found. The option "--use_wandb" will result in error.'
     )
 
-
 with torch.no_grad():
     if __name__ == "__main__":
         opt = TestOptions().parse()  # get test options
         # hard-code some parameters for test
         opt.num_threads = 0  # test code only supports num_threads = 0
         opt.batch_size = 1  # test code only supports batch_size = 1
-        # opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = (
             True  # no flip; comment this line if results on flipped images are needed.
         )
@@ -114,6 +113,7 @@ with torch.no_grad():
             print(data_name)
             model.test()  # run inference
             visuals = model.get_current_visuals()  # get image results
+    
             """mask_3d = np.load(
                 os.path.join(opt.dataroot, "RT_struct", data_name.split("-")[0])
                 + "-fitted_rtstruct_kvct.npy"
@@ -122,13 +122,9 @@ with torch.no_grad():
             mask = mask_3d[slice, :, :]
             mask = mask.astype(np.uint8)
             fakeB = visuals["fake_B"][0][0].cpu().data.numpy()
-            for iy, ix in np.ndindex(mask.shape):
-                if mask[iy][ix] == 0:
-                    fakeB[iy][ix] = 0
+            fakeB[mask == 0] = -1200
             realB = visuals["real_B"][0][0].cpu().data.numpy()
-            for iy, ix in np.ndindex(mask.shape):
-                if mask[iy][ix] == 0:
-                    realB[iy][ix] = 0
+            realB[mask == 0] = -1200
             visuals["fake_B"][0][0] = torch.from_numpy(fakeB).float().to("cuda:0")
             visuals["real_B"][0][0] = torch.from_numpy(realB).float().to("cuda:0")"""
             out_transforms = Compose(
@@ -145,10 +141,7 @@ with torch.no_grad():
             fakeB = out_transforms(visuals["fake_B"])
             realB = out_transforms(visuals["real_B"])
             print("Fa", fakeB.min(), fakeB.max())
-            # create default evaluator for doctests
-            def eval_step(_, batch):
-                return batch
-
+            
             test_mae = mean_absolute_error(fakeB, realB)
             testssim = StructuralSimilarityIndexMeasure().to(device="cuda:0")
             testpsnr = PeakSignalNoiseRatio().to(device="cuda:0")
@@ -156,7 +149,9 @@ with torch.no_grad():
             test_rmse = testrmse(fakeB, realB)
             test_ssim = testssim(fakeB, realB)
             test_psnr = testpsnr(fakeB, realB)
-
+            """# create default evaluator for doctests
+                def eval_step(_, batch):
+                    return batch
             default_evaluator = Engine(eval_step)
             mae = MeanAbsoluteError()
             psnr = PSNR(data_range=1000)
@@ -169,11 +164,11 @@ with torch.no_grad():
             state = default_evaluator.run(
                 [[fakeB, realB]], epoch_length=1, max_epochs=1
             )
-            pprint(state.metrics)
+            pprint(state.metrics)"""
             with open(log_name, "a") as log_file:
                 log_file.write(data_name)
                 log_file.write(
-                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s }"
+                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}\n"
                     % (
                         test_mae.item(),
                         test_psnr.item(),
@@ -182,7 +177,7 @@ with torch.no_grad():
                     )
                 )
 
-                log_file.write(", %s\n" % state.metrics)  # save the metrics values
+                #log_file.write(", %s" % state.metrics)  # save the metrics values
             img_path = model.get_image_paths()  # get image paths
             if i % 5 == 0:  # save images to an HTML file
                 print("processing (%04d)-th image... %s" % (i, img_path))
