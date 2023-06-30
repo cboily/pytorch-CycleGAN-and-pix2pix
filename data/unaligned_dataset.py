@@ -154,7 +154,7 @@ class UnalignedDataset(BaseDataset):
         A_path_slice = os.path.join(
             A_path_split2[0]
             + "_"
-            + f"{A_slice:04d}"
+            + str(A_slice)
             + A_path_split2[1]
             + A_path_split[1]
         )
@@ -164,7 +164,7 @@ class UnalignedDataset(BaseDataset):
         B_path_slice = os.path.join(
             B_path_split2[0]
             + "_"
-            + f"{B_slice:04d}"
+            + str(B_slice)
             + B_path_split2[1]
             + B_path_split[1]
         )
