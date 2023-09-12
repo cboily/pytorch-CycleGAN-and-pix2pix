@@ -1,0 +1,250 @@
+import os
+import random
+import time
+import itk
+import numpy as np
+from matplotlib import cm
+from monai.transforms import (
+    Compose,
+    ScaleIntensityRange,
+)
+from monai.transforms.transform import Transform
+from PIL import Image
+
+from data.base_dataset import BaseDataset, get_transform
+from data.nifty_folder import make_dataset
+from statistic_split_data import (
+    load_list_patients,
+    filter_data,
+    generate_groups,
+    extract_data,
+)
+
+
+class ITKImageToNumpyd(Transform):
+    def __init__(self):
+        pass
+
+    def __call__(self, data):
+        return itk.array_from_image(data)
+
+
+class LoadITKImage(Transform):
+    def __init__(self, pixel_type=itk.F):
+        self.pixel_type = pixel_type
+
+    def __call__(self, key):
+        d = itk.imread(key, pixel_type=self.pixel_type)
+        return d
+
+
+def deterministic_split(files_list, k, seed_value=0):
+    random.seed(seed_value)
+
+    shuffled_files = files_list[:]
+    random.shuffle(shuffled_files)
+    random.seed(None)
+    n = len(shuffled_files)
+    step = n // k
+
+    sublists = [shuffled_files[i : i + step] for i in range(0, n, step)]
+
+    if len(sublists) > k:
+        sublists[k - 1].extend(sublists[k:])
+        sublists = sublists[:k]
+
+    return sublists
+
+
+def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
+    if opt.isTrain is True:
+        return [
+            str1
+            for str1 in list_scans
+            if not any(str2 in str1 for str2 in data_group_to_exclude)
+        ]
+    else:
+        if opt.validation is True:
+            return [
+                str1
+                for str1 in list_scans
+                if any(str2 in str1 for str2 in data_groups[opt.fold])
+            ]
+        else:
+            return [
+                str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)
+            ]
+
+
+def construct_index_list(paths, pixel_type, max_size):
+    size = 0
+    index_list = []
+    for path in paths:
+        image = itk.array_from_image(itk.imread(path, pixel_type=pixel_type))
+        size += image.shape[0]
+        index_list.extend([(path, slice) for slice in range(image.shape[0])])
+        if size > max_size:
+            break
+    return index_list, size
+
+
+class UnalignedKFoldDataset(BaseDataset):
+    """
+    This dataset class can load unaligned/unpaired datasets.
+
+    It requires two directories to host training images from domain A '/path/to/data/trainA'
+    and from domain B '/path/to/data/trainB' respectively.
+    You can train the model with the dataset flag '--dataroot /path/to/data'.
+    Similarly, you need to prepare two directories:
+    '/path/to/data/testA' and '/path/to/data/testB' during test time.
+    """
+
+    def __init__(self, opt):
+        """Initialize this dataset class.
+
+        Parameters:
+            opt (Option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions
+        """
+        BaseDataset.__init__(self, opt)
+
+        self.pixel_type = itk.F
+        self.dir_A = os.path.join(
+            opt.dataroot, "MVCT"  # opt.phase + "A"  #
+        )  # create a path '/path/to/data/trainA'
+        self.dir_B = os.path.join(
+            opt.dataroot, "KVCT_fitted"  # opt.phase + "B"  #
+        )  # create a path '/path/to/data/trainB'
+        start_strat = time.perf_counter()
+        detail_df = load_list_patients()
+        localisation = "ORL"
+        distribution_df = filter_data(detail_df, localisation)
+        groups = generate_groups(distribution_df)
+
+        data_groups = extract_data(detail_df, distribution_df, groups, localisation)
+        stop_strat = time.perf_counter()
+        strat = stop_strat - start_strat
+        print("Strat time:", strat)
+
+        test_group = data_groups[-1]
+        data_group_to_exclude = data_groups[opt.fold] + data_groups[-1]
+
+        list_scans = sorted(make_dataset(self.dir_A))
+
+        self.A_paths = get_paths(
+            list_scans, data_group_to_exclude, data_groups, test_group, opt
+        )
+
+        end_a_path = time.perf_counter()
+        a_path_time = end_a_path - stop_strat
+        print("A path time:", a_path_time)
+        print("Size A", len(self.A_paths))
+        list_scans_b = sorted(make_dataset(self.dir_B))
+        self.B_paths = get_paths(
+            list_scans_b, data_group_to_exclude, data_groups, test_group, opt
+        )
+        print("Size B", len(self.B_paths))
+        end_b_path = time.perf_counter()
+        b_path_time = end_b_path - end_a_path
+        print("b path time:", b_path_time)
+
+        self.A_index, self.A_size = construct_index_list(
+            self.A_paths, self.pixel_type, opt.max_dataset_size
+        )
+        self.B_index, self.B_size = construct_index_list(
+            self.B_paths, self.pixel_type, opt.max_dataset_size
+        )
+
+        end_index = time.perf_counter()
+        time_index = end_index - end_b_path
+        print("Time index", time_index)
+        btoA = self.opt.direction == "BtoA"
+        input_nc = (
+            self.opt.output_nc if btoA else self.opt.input_nc
+        )  # get the number of channels of input image
+        output_nc = (
+            self.opt.input_nc if btoA else self.opt.output_nc
+        )  # get the number of channels of output image
+        self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
+        self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
+        print(self.A_size, self.B_size)
+        print(self.A_index.__len__(), self.B_index.__len__())
+        end_dataloa = time.perf_counter()
+        end_end = end_dataloa - end_index
+        print("transform time", end_end)
+
+    def __getitem__(self, index):
+        """Return a data point and its metadata information.
+
+        Parameters:
+            index (int)      -- a random integer for data indexing
+
+        Returns a dictionary that contains A, B, A_paths and B_paths
+            A (tensor)       -- an image in the input domain
+            B (tensor)       -- its corresponding image in the target domain
+            A_paths (str)    -- image paths
+            B_paths (str)    -- image paths
+        """
+        # print(index)
+        # print("result:",index % self.A_size)
+        if self.B_size < self.A_size:
+            index_range = index % self.B_size
+        else:
+            index_range = index % self.A_size
+        A_path = self.A_index[index_range][0]  # make sure index is within then range
+        A_slice = self.A_index[index_range][1]
+        B_path = self.B_index[index_range][0]  # make sure index is within then range
+        B_slice = self.B_index[index_range][1]
+        # print(A_path, A_slice, B_path, B_slice)
+        # print(B_path, B_slice)
+        transform = Compose(
+            [
+                LoadITKImage(),
+                ITKImageToNumpyd(),
+                ScaleIntensityRange(
+                    a_min=-600.0,
+                    a_max=400.0,
+                    b_min=-1.0,
+                    b_max=1.0,
+                    clip=True,
+                ),
+                # ToTensor(),
+            ]
+        )
+        A_img = transform(A_path)[A_slice, :, :]
+        B_img = transform(B_path)[B_slice, :, :]
+        # print(A_img.size())
+        # print(B_img.size())
+        # print("Min before image",A_img.min())
+        # print("Max before image",A_img.max())
+        im = Image.fromarray(np.uint8(cm.gist_earth(A_img) * 255))
+        imb = Image.fromarray(np.uint8(cm.gist_earth(B_img) * 255))
+        # print("Before image:",A_img.min(), A_img.max())#print("Min after image",)
+        # print(im.__sizeof__())
+        # print(imb.__sizeof__())
+        # print("After  image:",im.getextrema())
+        A_path_split = os.path.splitext(A_path)
+        A_path_split2 = os.path.splitext(A_path_split[0])
+        A_path_slice = os.path.join(
+            A_path_split2[0] + "_" + str(A_slice) + A_path_split2[1] + A_path_split[1]
+        )
+        # print(A_path_slice)
+        B_path_split = os.path.splitext(B_path)
+        B_path_split2 = os.path.splitext(B_path_split[0])
+        B_path_slice = os.path.join(
+            B_path_split2[0] + "_" + str(B_slice) + B_path_split2[1] + B_path_split[1]
+        )
+        # print(B_path_slice)
+        return {
+            "A": self.transform_A(im),
+            "B": self.transform_B(imb),
+            "A_paths": A_path_slice,
+            "B_paths": B_path_slice,
+        }
+
+    def __len__(self):
+        """Return the total number of images in the dataset.
+
+        As we have two datasets with potentially different number of images,
+        we take a maximum of
+        """
+        return max(self.A_size, self.B_size)
