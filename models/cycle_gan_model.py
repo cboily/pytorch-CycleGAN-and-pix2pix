@@ -162,7 +162,7 @@ class CycleGANModel(BaseModel):
             )  # define GAN loss.
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
-            #self.old_lr = opt.lr  # insert this line
+            # self.old_lr = opt.lr  # insert this line
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(
                 itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
@@ -187,6 +187,7 @@ class CycleGANModel(BaseModel):
                 print('update learning rate: %f -> %f' % (self.old_lr, lr))
                 self.old_lr = lr
         """
+
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
 

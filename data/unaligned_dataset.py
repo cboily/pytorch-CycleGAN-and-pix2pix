@@ -152,21 +152,13 @@ class UnalignedDataset(BaseDataset):
         A_path_split = os.path.splitext(A_path)
         A_path_split2 = os.path.splitext(A_path_split[0])
         A_path_slice = os.path.join(
-            A_path_split2[0]
-            + "_"
-            + str(A_slice)
-            + A_path_split2[1]
-            + A_path_split[1]
+            A_path_split2[0] + "_" + str(A_slice) + A_path_split2[1] + A_path_split[1]
         )
         # print(A_path_slice)
         B_path_split = os.path.splitext(B_path)
         B_path_split2 = os.path.splitext(B_path_split[0])
         B_path_slice = os.path.join(
-            B_path_split2[0]
-            + "_"
-            + str(B_slice)
-            + B_path_split2[1]
-            + B_path_split[1]
+            B_path_split2[0] + "_" + str(B_slice) + B_path_split2[1] + B_path_split[1]
         )
         # print(B_path_slice)
         return {
