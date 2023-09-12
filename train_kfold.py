@@ -19,14 +19,16 @@ See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-p
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
 import time
+
 from options.train_options import TrainOptions
+from util.visualizer import Visualizer
+
 from data import create_dataset
 from models import create_model
-from util.visualizer import Visualizer
 
 if __name__ == "__main__":
     opt = TrainOptions().parse()  # get training options
-    opt.num_folds = 10
+    opt.num_folds = 5
     opt.seed = 53493403
     for k in range(0, opt.num_folds):
         opt.fold = k

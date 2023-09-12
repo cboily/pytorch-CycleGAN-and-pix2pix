@@ -150,7 +150,7 @@ with torch.no_grad():
             -1
         )  # no visdom display; the test code saves the results to a HTML file.
 
-        opt.num_folds = 10
+        opt.num_folds = 5
         opt.seed = 53493403
         opt.isTrain = False
         result = []
@@ -159,11 +159,13 @@ with torch.no_grad():
             opt.fold = k
             print(f"FOLD {k}")
             print("--------------------------------")
+            opt.phase = "train"
             dataset = create_dataset(
                 opt
             )  # create a dataset given opt.dataset_mode and other options
             # opt.serial_batches = False
             print("Size Test subset", opt.num_test)
+            opt.phase = "test"
             model = create_model(
                 opt
             )  # create a model given opt.model and other options
