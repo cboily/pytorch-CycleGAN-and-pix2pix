@@ -62,7 +62,7 @@ with torch.no_grad():
         # hard-code some parameters for test
         opt.num_threads = 0  # test code only supports num_threads = 0
         opt.batch_size = 1  # test code only supports batch_size = 1
-        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        # opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = (
             True  # no flip; comment this line if results on flipped images are needed.
         )
@@ -104,7 +104,9 @@ with torch.no_grad():
         if opt.eval:
             model.eval()
         log_name = os.path.join(opt.results_dir, opt.name, "metric_log.txt")
+        log_name_mv = os.path.join(opt.results_dir, opt.name, "metric_mv_log.txt")
         open(log_name, "w").close()
+        open(log_name_mv, "w").close()
         for i, data in enumerate(dataset):
             if i >= opt.num_test:  # only apply our model to opt.num_test images.
                 break
@@ -113,7 +115,7 @@ with torch.no_grad():
             print(data_name)
             model.test()  # run inference
             visuals = model.get_current_visuals()  # get image results
-    
+
             """mask_3d = np.load(
                 os.path.join(opt.dataroot, "RT_struct", data_name.split("-")[0])
                 + "-fitted_rtstruct_kvct.npy"
@@ -140,8 +142,9 @@ with torch.no_grad():
             )
             fakeB = out_transforms(visuals["fake_B"])
             realB = out_transforms(visuals["real_B"])
+            realA = out_transforms(visuals["real_A"])
             print("Fa", fakeB.min(), fakeB.max())
-            
+
             test_mae = mean_absolute_error(fakeB, realB)
             testssim = StructuralSimilarityIndexMeasure().to(device="cuda:0")
             testpsnr = PeakSignalNoiseRatio().to(device="cuda:0")
@@ -149,6 +152,12 @@ with torch.no_grad():
             test_rmse = testrmse(fakeB, realB)
             test_ssim = testssim(fakeB, realB)
             test_psnr = testpsnr(fakeB, realB)
+
+            test_mae_mv = mean_absolute_error(realA, realB)
+            test_rmse_mv = testrmse(realA, realB)
+            test_psnr_mv = testpsnr(realA, realB)
+            test_ssim_mv = testssim(realA, realB)
+
             """# create default evaluator for doctests
                 def eval_step(_, batch):
                     return batch
@@ -176,8 +185,19 @@ with torch.no_grad():
                         test_ssim.item(),
                     )
                 )
+            with open(log_name_mv, "a") as log_file:
+                log_file.write(data_name)
+                log_file.write(
+                    ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}\n"
+                    % (
+                        test_mae_mv.item(),
+                        test_psnr_mv.item(),
+                        test_rmse_mv.item(),
+                        test_ssim_mv.item(),
+                    )
+                )
 
-                #log_file.write(", %s" % state.metrics)  # save the metrics values
+                # log_file.write(", %s" % state.metrics)  # save the metrics values
             img_path = model.get_image_paths()  # get image paths
             if i % 5 == 0:  # save images to an HTML file
                 print("processing (%04d)-th image... %s" % (i, img_path))
