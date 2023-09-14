@@ -201,7 +201,7 @@ def extract_data(detail_df, distribution_df, groups, localisation):
 
 
 detail_df = load_list_patients()
-localisation = "Abdomen"
+localisation = "ORL"
 distribution_df = filter_data(detail_df, localisation)
 
 # Step 2: Generate groups
@@ -211,9 +211,11 @@ groups = generate_groups(distribution_df)
 data_groups = extract_data(detail_df, distribution_df, groups, localisation)
 
 # Step 4: Save data groups to separate JSON files
-for idx, data_group in enumerate(data_groups):
-    with open(f"data_group_{idx+1}.json", "w") as json_file:
-        json.dump(data_group, json_file, indent=4)
-    print(f"Data group {idx+1} saved as data_group_{idx+1}.json")
+# for idx, data_group in enumerate(data_groups):
+with open("data_train_%s.json" % localisation, "w") as json_file:
+    json.dump(data_groups[:-1], json_file, indent=4)
+print("Data group %s saved as data_group_%s.json" % (localisation, localisation))
+with open("data_test_%s.json" % localisation, "w") as json_file:
+    json.dump(data_groups[-1], json_file, indent=4)
 
 print("Data extraction completed.")
