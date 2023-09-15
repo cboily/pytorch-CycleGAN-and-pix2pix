@@ -65,14 +65,15 @@ def filter_data(detail_df, localisation):
     filtered_df = detail_df[detail_df["Localisation"] == localisation]
     filtered_df["Age_Group"] = pd.cut(
         filtered_df["Age"],
-        bins=range(0, 101, 10),
+        bins=range(18, 99, 10),
         right=False,
-        labels=[f"{i}-{i+9}" for i in range(0, 100, 10)],
+        labels=[f"{i}-{i+9}" for i in range(18, 98, 10)],
     )
 
     pivot_table = pd.pivot_table(
         filtered_df, index=["Age_Group"], columns=["Sexe"], aggfunc="size"
     )  # values='Sexe',
+    print(pivot_table)
     distribution_df = pivot_table.reset_index()
     distribution_df.drop(columns="O", inplace=True)
     distribution_df["Total"] = distribution_df.iloc[:, :].sum(axis=1)
@@ -153,7 +154,11 @@ def generate_groups(filtered_df):
 
 def extract_data(detail_df, distribution_df, groups, localisation):
     data_groups = [[] for _ in range(6)]
+
     detail_df = detail_df[detail_df["Localisation"] == localisation]
+    kids_df = detail_df[(detail_df["Age"] < 18)]
+    for _, data_row in kids_df.iterrows():
+        data_groups[-1].append(data_row["anon_name"])
 
     age_intervals = distribution_df["Age_Group"].str.split("-", expand=True).astype(int)
     for idx, row in distribution_df.iterrows():
@@ -162,6 +167,7 @@ def extract_data(detail_df, distribution_df, groups, localisation):
         subset_df = detail_df[
             (detail_df["Age"] >= age_range_min) & (detail_df["Age"] <= age_range_max)
         ]
+        print(subset_df)
 
         for gender in ["F", "M"]:
             gender_subset_df = subset_df[subset_df["Sexe"] == gender]
@@ -172,8 +178,6 @@ def extract_data(detail_df, distribution_df, groups, localisation):
                 if gender == "F":
                     tot = sum(group[idx][0] for group in groups)
                     if tot > 0:
-                        p = [(group[idx][0]) / tot for group in groups]
-                        # print("P", p, "distribu", tot)
                         group_idx = np.random.choice(
                             range(6), p=[(group[idx][0]) / tot for group in groups]
                         )
@@ -186,8 +190,6 @@ def extract_data(detail_df, distribution_df, groups, localisation):
                 else:
                     tot = sum(group[idx][1] for group in groups)
                     if tot > 0:
-                        p = [(group[idx][1]) / tot for group in groups]
-                        # print("P", p, "distribu", tot)
                         group_idx = np.random.choice(
                             range(6), p=[(group[idx][1]) / tot for group in groups]
                         )
