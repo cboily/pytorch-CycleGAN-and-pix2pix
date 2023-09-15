@@ -2,6 +2,7 @@ import os
 import random
 import time
 import itk
+import json
 import numpy as np
 from matplotlib import cm
 from monai.transforms import (
@@ -13,12 +14,7 @@ from PIL import Image
 
 from data.base_dataset import BaseDataset, get_transform
 from data.nifty_folder import make_dataset
-from statistic_split_data import (
-    load_list_patients,
-    filter_data,
-    generate_groups,
-    extract_data,
-)
+
 
 
 class ITKImageToNumpyd(Transform):
@@ -56,7 +52,7 @@ def deterministic_split(files_list, k, seed_value=0):
     return sublists
 
 
-def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
+def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
     if opt.isTrain is True:
         return [
             str1
@@ -72,9 +68,11 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
             ]
         else:
             return [
-                str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)
+                str1
+                for str1 in list_scans
+                if any(str2 in str1 for str2 in data_groups)
             ]
-
+    
 
 def construct_index_list(paths, pixel_type, max_size):
     size = 0
@@ -115,32 +113,22 @@ class UnalignedKFoldDataset(BaseDataset):
             opt.dataroot, "KVCT_fitted"  # opt.phase + "B"  #
         )  # create a path '/path/to/data/trainB'
         start_strat = time.perf_counter()
-        detail_df = load_list_patients()
-        localisation = "ORL"
-        distribution_df = filter_data(detail_df, localisation)
-        groups = generate_groups(distribution_df)
-
-        data_groups = extract_data(detail_df, distribution_df, groups, localisation)
-        stop_strat = time.perf_counter()
-        strat = stop_strat - start_strat
-        print("Strat time:", strat)
-
-        test_group = data_groups[-1]
-        data_group_to_exclude = data_groups[opt.fold] + data_groups[-1]
-
+        opt.localisation= "ORL"
+        with open("data_%s_%s.json" %(opt.phase, opt.localisation), "r") as fp:
+            data_groups = json.load(fp)
+        
+        data_group_to_exclude = data_groups[opt.fold]
         list_scans = sorted(make_dataset(self.dir_A))
-
         self.A_paths = get_paths(
-            list_scans, data_group_to_exclude, data_groups, test_group, opt
+            list_scans, data_group_to_exclude, data_groups, opt
         )
-
         end_a_path = time.perf_counter()
-        a_path_time = end_a_path - stop_strat
+        a_path_time = end_a_path - start_strat
         print("A path time:", a_path_time)
         print("Size A", len(self.A_paths))
         list_scans_b = sorted(make_dataset(self.dir_B))
         self.B_paths = get_paths(
-            list_scans_b, data_group_to_exclude, data_groups, test_group, opt
+            list_scans_b, data_group_to_exclude, data_groups, opt
         )
         print("Size B", len(self.B_paths))
         end_b_path = time.perf_counter()
