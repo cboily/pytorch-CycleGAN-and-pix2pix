@@ -72,7 +72,7 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
 
 
 def construct_index_list(paths, pixel_type, localisation, ct_type, max_size):
-    with open("index_%s_%s.json" % (localisation, ct_type), "r") as f:
+    with open("../index_%s_%s.json" % (localisation, ct_type), "r") as f:
         image_data_list = json.load(f)
 
     image_data_dict = {item["path"]: item["size"] for item in image_data_list}
@@ -123,7 +123,7 @@ class UnalignedKFoldDataset(BaseDataset):
         )  # create a path '/path/to/data/trainB'
         start_strat = time.perf_counter()
         opt.localisation = "ORL"
-        with open("data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
+        with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
             data_groups = json.load(fp)
 
         data_group_to_exclude = data_groups[opt.fold]
