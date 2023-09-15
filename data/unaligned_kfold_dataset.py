@@ -16,7 +16,6 @@ from data.base_dataset import BaseDataset, get_transform
 from data.nifty_folder import make_dataset
 
 
-
 class ITKImageToNumpyd(Transform):
     def __init__(self):
         pass
@@ -68,21 +67,31 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
             ]
         else:
             return [
-                str1
-                for str1 in list_scans
-                if any(str2 in str1 for str2 in data_groups)
+                str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
             ]
-    
 
-def construct_index_list(paths, pixel_type, max_size):
+
+def construct_index_list(paths, pixel_type, localisation, ct_type, max_size):
+    with open("index_%s_%s.json" % (localisation, ct_type), "r") as f:
+        image_data_list = json.load(f)
+
+    image_data_dict = {item["path"]: item["size"] for item in image_data_list}
     size = 0
     index_list = []
+    # image_data_list=[]
     for path in paths:
-        image = itk.array_from_image(itk.imread(path, pixel_type=pixel_type))
-        size += image.shape[0]
-        index_list.extend([(path, slice) for slice in range(image.shape[0])])
+        if path in image_data_dict:
+            image_shape = image_data_dict[path]
+            size += image_shape
+        # image = itk.array_from_image(itk.imread(path, pixel_type=pixel_type))
+
+        index_list.extend([(path, slice) for slice in range(image_shape)])
+        # image_data_list.append({"path": path, "size": image.shape[0]})
         if size > max_size:
             break
+    """localisation = "ORL"
+    with open("index_%s_%s.json" % (localisation, ct_type ), "w") as json_file:
+            json.dump(image_data_list, json_file, indent=4)"""
     return index_list, size
 
 
@@ -113,35 +122,39 @@ class UnalignedKFoldDataset(BaseDataset):
             opt.dataroot, "KVCT_fitted"  # opt.phase + "B"  #
         )  # create a path '/path/to/data/trainB'
         start_strat = time.perf_counter()
-        opt.localisation= "ORL"
-        with open("data_%s_%s.json" %(opt.phase, opt.localisation), "r") as fp:
+        opt.localisation = "ORL"
+        with open("data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
             data_groups = json.load(fp)
-        
+
         data_group_to_exclude = data_groups[opt.fold]
         list_scans = sorted(make_dataset(self.dir_A))
-        self.A_paths = get_paths(
-            list_scans, data_group_to_exclude, data_groups, opt
-        )
+        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)
+
         end_a_path = time.perf_counter()
         a_path_time = end_a_path - start_strat
         print("A path time:", a_path_time)
         print("Size A", len(self.A_paths))
         list_scans_b = sorted(make_dataset(self.dir_B))
-        self.B_paths = get_paths(
-            list_scans_b, data_group_to_exclude, data_groups, opt
-        )
+        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, opt)
         print("Size B", len(self.B_paths))
         end_b_path = time.perf_counter()
         b_path_time = end_b_path - end_a_path
         print("b path time:", b_path_time)
 
         self.A_index, self.A_size = construct_index_list(
-            self.A_paths, self.pixel_type, opt.max_dataset_size
+            self.A_paths,
+            self.pixel_type,
+            opt.localisation,
+            "MVCT",
+            opt.max_dataset_size,
         )
         self.B_index, self.B_size = construct_index_list(
-            self.B_paths, self.pixel_type, opt.max_dataset_size
+            self.B_paths,
+            self.pixel_type,
+            opt.localisation,
+            "KVCT_fitted",
+            opt.max_dataset_size,
         )
-
         end_index = time.perf_counter()
         time_index = end_index - end_b_path
         print("Time index", time_index)
