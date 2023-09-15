@@ -167,8 +167,7 @@ def extract_data(detail_df, distribution_df, groups, localisation):
         subset_df = detail_df[
             (detail_df["Age"] >= age_range_min) & (detail_df["Age"] <= age_range_max)
         ]
-        print(subset_df)
-
+        
         for gender in ["F", "M"]:
             gender_subset_df = subset_df[subset_df["Sexe"] == gender]
 
