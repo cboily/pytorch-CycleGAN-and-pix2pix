@@ -121,8 +121,6 @@ class UnalignedKFoldDataset(BaseDataset):
         self.dir_B = os.path.join(
             opt.dataroot, "KVCT_fitted"  # opt.phase + "B"  #
         )  # create a path '/path/to/data/trainB'
-        start_strat = time.perf_counter()
-        opt.localisation = "ORL"
         with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
             data_groups = json.load(fp)
 
@@ -130,16 +128,8 @@ class UnalignedKFoldDataset(BaseDataset):
         list_scans = sorted(make_dataset(self.dir_A))
         self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)
 
-        end_a_path = time.perf_counter()
-        a_path_time = end_a_path - start_strat
-        print("A path time:", a_path_time)
-        print("Size A", len(self.A_paths))
         list_scans_b = sorted(make_dataset(self.dir_B))
         self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, opt)
-        print("Size B", len(self.B_paths))
-        end_b_path = time.perf_counter()
-        b_path_time = end_b_path - end_a_path
-        print("b path time:", b_path_time)
 
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
@@ -155,9 +145,6 @@ class UnalignedKFoldDataset(BaseDataset):
             "KVCT_fitted",
             opt.max_dataset_size,
         )
-        end_index = time.perf_counter()
-        time_index = end_index - end_b_path
-        print("Time index", time_index)
         btoA = self.opt.direction == "BtoA"
         input_nc = (
             self.opt.output_nc if btoA else self.opt.input_nc
@@ -167,11 +154,6 @@ class UnalignedKFoldDataset(BaseDataset):
         )  # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
-        print(self.A_size, self.B_size)
-        print(self.A_index.__len__(), self.B_index.__len__())
-        end_dataloa = time.perf_counter()
-        end_end = end_dataloa - end_index
-        print("transform time", end_end)
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -185,8 +167,6 @@ class UnalignedKFoldDataset(BaseDataset):
             A_paths (str)    -- image paths
             B_paths (str)    -- image paths
         """
-        # print(index)
-        # print("result:",index % self.A_size)
         if self.B_size < self.A_size:
             index_range = index % self.B_size
         else:
@@ -195,8 +175,6 @@ class UnalignedKFoldDataset(BaseDataset):
         A_slice = self.A_index[index_range][1]
         B_path = self.B_index[index_range][0]  # make sure index is within then range
         B_slice = self.B_index[index_range][1]
-        # print(A_path, A_slice, B_path, B_slice)
-        # print(B_path, B_slice)
         transform = Compose(
             [
                 LoadITKImage(),
@@ -208,33 +186,23 @@ class UnalignedKFoldDataset(BaseDataset):
                     b_max=1.0,
                     clip=True,
                 ),
-                # ToTensor(),
             ]
         )
         A_img = transform(A_path)[A_slice, :, :]
         B_img = transform(B_path)[B_slice, :, :]
-        # print(A_img.size())
-        # print(B_img.size())
-        # print("Min before image",A_img.min())
-        # print("Max before image",A_img.max())
         im = Image.fromarray(np.uint8(cm.gist_earth(A_img) * 255))
         imb = Image.fromarray(np.uint8(cm.gist_earth(B_img) * 255))
-        # print("Before image:",A_img.min(), A_img.max())#print("Min after image",)
-        # print(im.__sizeof__())
-        # print(imb.__sizeof__())
-        # print("After  image:",im.getextrema())
         A_path_split = os.path.splitext(A_path)
         A_path_split2 = os.path.splitext(A_path_split[0])
         A_path_slice = os.path.join(
             A_path_split2[0] + "_" + str(A_slice) + A_path_split2[1] + A_path_split[1]
         )
-        # print(A_path_slice)
         B_path_split = os.path.splitext(B_path)
         B_path_split2 = os.path.splitext(B_path_split[0])
         B_path_slice = os.path.join(
             B_path_split2[0] + "_" + str(B_slice) + B_path_split2[1] + B_path_split[1]
         )
-        # print(B_path_slice)
+
         return {
             "A": self.transform_A(im),
             "B": self.transform_B(imb),

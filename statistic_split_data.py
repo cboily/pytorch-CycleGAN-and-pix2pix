@@ -167,7 +167,7 @@ def extract_data(detail_df, distribution_df, groups, localisation):
         subset_df = detail_df[
             (detail_df["Age"] >= age_range_min) & (detail_df["Age"] <= age_range_max)
         ]
-        
+
         for gender in ["F", "M"]:
             gender_subset_df = subset_df[subset_df["Sexe"] == gender]
 
@@ -220,3 +220,20 @@ with open("data_test_%s.json" % localisation, "w") as json_file:
     json.dump(data_groups[-1], json_file, indent=4)
 
 print("Data extraction completed.")
+
+##To save the number of slice of each data
+def construct_index_list(paths, pixel_type, max_size, ct_type):
+    size = 0
+    index_list = []
+    image_data_list = []
+    for path in paths:
+        image = itk.array_from_image(itk.imread(path, pixel_type=pixel_type))
+        size += image.shape[0]
+        index_list.extend([(path, slice) for slice in range(image.shape[0])])
+        image_data_list.append({"path": path, "size": image.shape[0]})
+        if size > max_size:
+            break
+    localisation = "ORL"
+    with open("index_train_%s_%s.json" % (localisation, ct_type), "w") as json_file:
+        json.dump(image_data_list, json_file, indent=4)
+    return index_list, size

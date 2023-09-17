@@ -29,7 +29,7 @@ from models import create_model
 if __name__ == "__main__":
     opt = TrainOptions().parse()  # get training options
     opt.num_folds = 5
-    opt.seed = 53493403
+    opt.localisation = "ORL"
     for k in range(0, opt.num_folds):
         opt.fold = k
         print(f"FOLD {k}")
@@ -94,8 +94,9 @@ if __name__ == "__main__":
                         "saving the latest model (epoch %d, total_iters %d)"
                         % (epoch, total_iters)
                     )
-                    save_suffix = (
-                        "iter_%d" % total_iters if opt.save_by_iter else "latest"
+                    save_suffix = "%d_iter_%d" % (
+                        int(k),
+                        total_iters if opt.save_by_iter else "latest",
                     )
                     model.save_networks(save_suffix)
 

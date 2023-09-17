@@ -96,8 +96,12 @@ class BaseModel(ABC):
         if not self.isTrain or opt.continue_train:
             load_suffix = "iter_%d" % opt.load_iter if opt.load_iter > 0 else opt.epoch
             print("Model name loaded", load_suffix)
-            fold = opt.fold if opt.num_folds > 1 else ""
-            self.load_networks(fold, load_suffix)
+            if hasattr(opt, "num_folds"):
+                load_suffix = "%s_iter_%d" % (
+                    opt.fold,
+                    opt.load_iter if opt.load_iter > 0 else opt.epoch,
+                )
+            self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
     def eval(self):
@@ -196,7 +200,7 @@ class BaseModel(ABC):
                 state_dict, getattr(module, key), keys, i + 1
             )
 
-    def load_networks(self, fold, epoch):
+    def load_networks(self, epoch):
         """Load all the networks from the disk.
 
         Parameters:
@@ -205,7 +209,7 @@ class BaseModel(ABC):
 
         for name in self.model_names:
             if isinstance(name, str):
-                load_filename = "%s_%s_net_%s.pth" % (fold, epoch, name)
+                load_filename = "%s_net_%s.pth" % (epoch, name)
                 print("filename", load_filename)
                 load_path = os.path.join(self.save_dir, load_filename)
                 net = getattr(self, "net" + name)
