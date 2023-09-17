@@ -94,8 +94,8 @@ if __name__ == "__main__":
                         "saving the latest model (epoch %d, total_iters %d)"
                         % (epoch, total_iters)
                     )
-                    save_suffix = "%d_iter_%d" % (
-                        int(k),
+                    save_suffix = "{}_{}".format(
+                        k,
                         total_iters if opt.save_by_iter else "latest",
                     )
                     model.save_networks(save_suffix)
