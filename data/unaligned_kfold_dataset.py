@@ -123,7 +123,7 @@ class UnalignedKFoldDataset(BaseDataset):
         )  # create a path '/path/to/data/trainB'
         with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
             data_groups = json.load(fp)
-
+        
         data_group_to_exclude = data_groups[opt.fold]
         list_scans = sorted(make_dataset(self.dir_A))
         self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)

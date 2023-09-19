@@ -135,6 +135,11 @@ class TrainOptions(BaseOptions):
             default=50,
             help="multiply by a gamma every lr_decay_iters iterations",
         )
-
+        parser.add_argument(
+            "--fold",
+            type=int,
+            default=0,
+            help="number of training fold",
+        )
         self.isTrain = True
         return parser
