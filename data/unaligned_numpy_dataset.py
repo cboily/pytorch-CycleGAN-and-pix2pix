@@ -1,6 +1,7 @@
 import os
 import itk
 import numpy as np
+import json
 from matplotlib import cm
 from monai.transforms import (
     Compose,
@@ -20,7 +21,34 @@ class LoadNumpyArray(Transform):
     def __call__(self, path):
         return np.load(path)
 
-
+def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
+    if opt.isTrain is True:
+        return [
+            str1
+            for str1 in list_scans
+            if not any(str2 in str1 for str2 in data_group_to_exclude)
+        ]
+    else:
+        if opt.validation is True:
+            return [
+                str1
+                for str1 in list_scans
+                if any(str2 in str1 for str2 in data_groups[opt.fold])
+            ]
+        else:
+            return [
+                str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
+            ]
+def construct_index_list(paths, max_size):
+    size = 0
+    index_list = []
+    for path in paths:
+            slices = int(path.split("_")[-1].split(".npy")[0])
+            size += slices
+            index_list.extend([(path, slice) for slice in range(slices)])
+            if size > max_size:
+                break
+    return index_list, size
 class UnalignedNumpyDataset(BaseDataset):
     """
     This dataset class can load unaligned/unpaired datasets.
@@ -41,37 +69,28 @@ class UnalignedNumpyDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, opt.phase + "A"
+            opt.dataroot, "MVCT"#opt.phase + "A"
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, opt.phase + "B"
+            opt.dataroot, "KVCT_fitted" #opt.phase + "B"
         )  # create a path '/path/to/data/trainB'
+        with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
+            data_groups = json.load(fp)
+        
+        data_group_to_exclude = data_groups[opt.fold]
+        list_scans = sorted(make_dataset_numpy(self.dir_A))
+        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)
 
-        self.A_paths = sorted(
-            make_dataset_numpy(self.dir_A)
-        )  # load images from '/path/to/data/trainA'
-        self.B_paths = sorted(
-            make_dataset_numpy(self.dir_B)
-        )  # load images from '/path/to/data/trainB'
-        self.A_size = 0
-        self.A_index = []
-        for path in self.A_paths:
-            slices = int(path.split("_")[-1].split(".npy")[0])
-            self.A_size += slices
-            for slice in range(slices):
-                self.A_index.append((path, slice))
-            if self.A_size > opt.max_dataset_size:
-                break
-        self.B_size = 0
-        self.B_index = []
-        for path in self.B_paths:
-            slices = int(path.split("_")[-1].split(".npy")[0])
-            self.B_size += slices  # get the size of dataset B
-            for slice in range(slices):
-                self.B_index.append((path, slice))
-            if self.B_size > opt.max_dataset_size:
-                break
-
+        list_scans_b = sorted(make_dataset_numpy(self.dir_B))
+        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, opt)
+        self.A_index, self.A_size = construct_index_list(
+            self.A_paths,
+            opt.max_dataset_size,
+        )
+        self.B_index, self.B_size = construct_index_list(
+            self.B_paths,
+            opt.max_dataset_size,
+        )
         btoA = self.opt.direction == "BtoA"
         input_nc = (
             self.opt.output_nc if btoA else self.opt.input_nc
