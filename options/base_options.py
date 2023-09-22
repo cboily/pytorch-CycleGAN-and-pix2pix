@@ -144,6 +144,12 @@ class BaseOptions:
             help="Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.",
         )
         parser.add_argument(
+            "--fold",
+            type=int,
+            default=0,
+            help="number of training fold",
+        )
+        parser.add_argument(
             "--preprocess",
             type=str,
             default="resize_and_crop",
