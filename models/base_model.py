@@ -96,8 +96,8 @@ class BaseModel(ABC):
         if not self.isTrain or opt.continue_train:
             load_suffix = "iter_%d" % opt.load_iter if opt.load_iter > 0 else opt.epoch
             print("Model name loaded", load_suffix)
-            if hasattr(opt, "num_folds"):
-                load_suffix = "%s_iter_%d" % (
+            if hasattr(opt, "fold"):
+                load_suffix = "{}_{}".format(
                     opt.fold,
                     opt.load_iter if opt.load_iter > 0 else opt.epoch,
                 )
