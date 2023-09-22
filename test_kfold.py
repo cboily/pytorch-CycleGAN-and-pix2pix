@@ -157,15 +157,13 @@ with torch.no_grad():
         for k in range(0, opt.num_folds):
             result.append([])
             opt.fold = k
-            print(f"FOLD {k}")
-            print("--------------------------------")
-            opt.phase = "train"
+            print(f"FOLD {opt.fold}")
+            print("--------------------------------")    
             dataset = create_dataset(
                 opt
             )  # create a dataset given opt.dataset_mode and other options
             # opt.serial_batches = False
-            print("Size Test subset", opt.num_test)
-            opt.phase = "test"
+            print("Size Test subset", opt.num_test)            
             model = create_model(
                 opt
             )  # create a model given opt.model and other options
