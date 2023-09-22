@@ -28,17 +28,17 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
             for str1 in list_scans
             if not any(str2 in str1 for str2 in data_group_to_exclude)
         ]
+    
+    if hasattr(opt, "validation") is True:
+        return [
+            str1
+            for str1 in list_scans
+            if any(str2 in str1 for str2 in data_groups[opt.fold])
+        ]
     else:
-        if opt.validation is True:
-            return [
-                str1
-                for str1 in list_scans
-                if any(str2 in str1 for str2 in data_groups[opt.fold])
-            ]
-        else:
-            return [
-                str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
-            ]
+        return [
+            str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
+        ]
 def construct_index_list(paths, max_size):
     size = 0
     index_list = []
