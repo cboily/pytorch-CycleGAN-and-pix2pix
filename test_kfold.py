@@ -61,32 +61,96 @@ except ImportError:
 
 def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float]:
     """Calculates the mean of each metric from a list of dictionaries."""
+    # Function to calculate variance and standard deviation
+    import math
+
+    def calc_variance_and_stddev(values, mean):
+        variance = sum((x - mean) ** 2 for x in values) / num_items
+        stddev = math.sqrt(variance)
+        return variance, stddev
 
     results = []
-
+    # results2 = []
     # For each sublist in the data:
-    for sublist in data:
-        total_mae, total_psnr, total_rmse, total_ssim = 0, 0, 0, 0
-
+    for sublist in data_list:
+        # total_mae, total_psnr, total_rmse, total_ssim = 0, 0, 0, 0
+        mae_values = []
+        psnr_values = []
+        rmse_values = []
+        ssim_values = []
         # Sum up the metrics for each file in the sublist in a single pass
         for test_image in sublist:
             for metrics in test_image.values():
-                total_mae += metrics["MAE"]
+                """total_mae += metrics["MAE"]
                 total_psnr += metrics["PSNR"]
                 total_rmse += metrics["RMSE"]
-                total_ssim += metrics["SSIM"]
-
+                total_ssim += metrics["SSIM"]"""
+                mae_values.append(metrics["MAE"])
+                psnr_values.append(metrics["PSNR"])
+                rmse_values.append(metrics["RMSE"])
+                ssim_values.append(metrics["SSIM"])
             num_items = len(test_image)
-            # Store the mean for each metric in the results list using conventional keys
-            sublist_result = {
-                "mean_MAE": total_mae / num_items,
-                "mean_PSNR": total_psnr / num_items,
-                "mean_RMSE": total_rmse / num_items,
-                "mean_SSIM": total_ssim / num_items,
-            }
-            results.append(sublist_result)
+            # Calculate mean, variance, and standard deviation using NumPy
+            mean_MAE = np.mean(mae_values)
+            mean_PSNR = np.mean(psnr_values)
+            mean_RMSE = np.mean(rmse_values)
+            mean_SSIM = np.mean(ssim_values)
 
-    return results
+            """var_MAE = np.var(mae_values)
+            var_PSNR = np.var(psnr_values)
+            var_RMSE = np.var(rmse_values)
+            var_SSIM = np.var(ssim_values)"""
+
+            stddev_MAE = np.std(mae_values)
+            stddev_PSNR = np.std(psnr_values)
+            stddev_RMSE = np.std(rmse_values)
+            stddev_SSIM = np.std(ssim_values)
+
+            # Store the mean, variance, and standard deviation for each metric in the results list
+            sublist_result = {
+                "mean_MAE": mean_MAE,
+                "mean_PSNR": mean_PSNR,
+                "mean_RMSE": mean_RMSE,
+                "mean_SSIM": mean_SSIM,
+                "stddev_MAE": stddev_MAE,
+                "stddev_PSNR": stddev_PSNR,
+                "stddev_RMSE": stddev_RMSE,
+                "stddev_SSIM": stddev_SSIM,
+            }
+            """"var_MAE": var_MAE,
+                "var_PSNR": var_PSNR,
+                "var_RMSE": var_RMSE,
+                "var_SSIM": var_SSIM,"""
+            results.append(sublist_result)
+            """mean_MAE = total_mae / num_items
+            mean_PSNR = total_psnr / num_items
+            mean_RMSE = total_rmse / num_items
+            mean_SSIM = total_ssim / num_items
+
+            # Calculate the variance and standard deviation for each metric
+            var_MAE, stddev_MAE = calc_variance_and_stddev(mae_values, mean_MAE)
+            var_PSNR, stddev_PSNR = calc_variance_and_stddev(psnr_values, mean_PSNR)
+            var_RMSE, stddev_RMSE = calc_variance_and_stddev(rmse_values, mean_RMSE)
+            var_SSIM, stddev_SSIM = calc_variance_and_stddev(ssim_values, mean_SSIM)
+
+            # Store the mean, variance, and standard deviation for each metric in the results list
+            sublist_result2 = {
+                "mean_MAE": mean_MAE,
+                "mean_PSNR": mean_PSNR,
+                "mean_RMSE": mean_RMSE,
+                "mean_SSIM": mean_SSIM,
+                "var_MAE": var_MAE,
+                "var_PSNR": var_PSNR,
+                "var_RMSE": var_RMSE,
+                "var_SSIM": var_SSIM,
+                "stddev_MAE": stddev_MAE,
+                "stddev_PSNR": stddev_PSNR,
+                "stddev_RMSE": stddev_RMSE,
+                "stddev_SSIM": stddev_SSIM,
+            }
+            results2.append(sublist_result2)"""
+
+    return results  # , results2
 
 
 def rank_data_by_metrics(
@@ -142,7 +206,7 @@ with torch.no_grad():
         # hard-code some parameters for test
         opt.num_threads = 0  # test code only supports num_threads = 0
         opt.batch_size = 1  # test code only supports batch_size = 1
-        # opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = (
             True  # no flip; comment this line if results on flipped images are needed.
         )
@@ -151,19 +215,23 @@ with torch.no_grad():
         )  # no visdom display; the test code saves the results to a HTML file.
 
         opt.num_folds = 5
+        opt.localisation = "ORL"
         opt.seed = 53493403
         opt.isTrain = False
         result = []
+        name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             opt.fold = k
             print(f"FOLD {opt.fold}")
-            print("--------------------------------")    
+            print("--------------------------------")
+            opt.name = name + str(opt.fold)
+            print("Name:", opt.name)
             dataset = create_dataset(
                 opt
             )  # create a dataset given opt.dataset_mode and other options
             # opt.serial_batches = False
-            print("Size Test subset", opt.num_test)            
+            # print("Size Test subset", opt.num_test)
             model = create_model(
                 opt
             )  # create a model given opt.model and other options
@@ -216,7 +284,7 @@ with torch.no_grad():
                 model.set_input(data)  # unpack data from data loader
                 data_name = os.path.split(str(data["A_paths"][0]))[1]
                 print(data_name)
-                result_data
+                # result_data
                 model.test()  # run inference
                 visuals = model.get_current_visuals()  # get image results
 
@@ -234,9 +302,9 @@ with torch.no_grad():
                 fakeB = out_transforms(visuals["fake_B"])
                 realB = out_transforms(visuals["real_B"])
                 realA = out_transforms(visuals["real_A"])
-                print("Fa", fakeB.min(), fakeB.max())
+                # print("Fa", fakeB.min(), fakeB.max())
 
-                result_data["MAE"] = mean_absolute_error(fakeB, realB)
+                result_data["MAE"] = mean_absolute_error(fakeB, realB).item()
                 testssim = StructuralSimilarityIndexMeasure().to(device="cuda:0")
                 testpsnr = PeakSignalNoiseRatio().to(device="cuda:0")
                 testrmse = MeanSquaredError(squared=False).to(device="cuda:0")
@@ -310,9 +378,13 @@ with torch.no_grad():
 
         # Write the results to a JSON file
         log_name = os.path.join(opt.results_dir, opt.name, "metrics_means_by_k.json")
+        # log_name2 = os.path.join(opt.results_dir, opt.name, "metrics_means_by_k2.json")
+        # results, results2 =
         with open(log_name, "w") as file:
             json.dump(
-                rank_data_by_metrics(calculate_mean_metrics(data)), file, indent=4
+                rank_data_by_metrics(calculate_mean_metrics(result)), file, indent=4
             )
+        # with open(log_name2, "w") as file:
+        #    json.dump(rank_data_by_metrics(results2), file, indent=4)
 
         print("Results have been written to 'results.json'.")
