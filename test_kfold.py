@@ -283,7 +283,7 @@ with torch.no_grad():
                     break
                 model.set_input(data)  # unpack data from data loader
                 data_name = os.path.split(str(data["A_paths"][0]))[1]
-                print(data_name)
+                #print(data_name)
                 # result_data
                 model.test()  # run inference
                 visuals = model.get_current_visuals()  # get image results
@@ -362,14 +362,16 @@ with torch.no_grad():
                 img_path = model.get_image_paths()  # get image paths
                 if i % 5 == 0:  # save images to an HTML file
                     print("processing (%04d)-th image... %s" % (i, img_path))
-                save_images(
-                    webpage,
-                    visuals,
-                    img_path,
-                    aspect_ratio=opt.aspect_ratio,
-                    width=opt.display_winsize,
-                    use_wandb=opt.use_wandb,
-                )
+                if 1000 < i < 1200 or 5000 < i < 5200 or 10000 < i < 10200:
+                    save_images(
+                        webpage,
+                        visuals,
+                        img_path,
+                        aspect_ratio=opt.aspect_ratio,
+                        width=opt.display_winsize,
+                        use_wandb=opt.use_wandb,
+                    )
+                
             result[k].append(result_fold)
             webpage.save()  # save the HTML
         log_name = os.path.join(opt.results_dir, opt.name, "metric_log_fold.json")
