@@ -21,14 +21,14 @@ class LoadNumpyArray(Transform):
     def __call__(self, path):
         return np.load(path)
 
-def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
+
+def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
     if opt.isTrain is True:
         return [
             str1
             for str1 in list_scans
             if not any(str2 in str1 for str2 in data_group_to_exclude)
         ]
-    
     if hasattr(opt, "validation") is True:
         return [
             str1
@@ -36,19 +36,21 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
             if any(str2 in str1 for str2 in data_groups[opt.fold])
         ]
     else:
-        return [
-            str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
-        ]
+        return [str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)]
+
+
 def construct_index_list(paths, max_size):
     size = 0
     index_list = []
     for path in paths:
-            slices = int(path.split("_")[-1].split(".npy")[0])
-            size += slices
-            index_list.extend([(path, slice) for slice in range(slices)])
-            if size > max_size:
-                break
+        slices = int(path.split("_")[-1].split(".npy")[0])
+        size += slices
+        index_list.extend([(path, slice) for slice in range(slices)])
+        if size > max_size:
+            break
     return index_list, size
+
+
 class UnalignedNumpyDataset(BaseDataset):
     """
     This dataset class can load unaligned/unpaired datasets.
@@ -69,20 +71,23 @@ class UnalignedNumpyDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, "MVCT"#opt.phase + "A"
+            opt.dataroot, "MVCT"  # opt.phase + "A"
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, "KVCT_fitted" #opt.phase + "B"
+            opt.dataroot, "KVCT_fitted"  # opt.phase + "B"
         )  # create a path '/path/to/data/trainB'
-        with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
+        with open("../data_train_%s.json" % (opt.localisation), "r") as fp:
             data_groups = json.load(fp)
-        
-        data_group_to_exclude = data_groups[opt.fold]
+
+        with open("../data_test_%s.json" % (opt.localisation), "r") as fp:
+            test_group = json.load(fp)
+
+        data_group_to_exclude = data_groups[opt.fold] + test_group
         list_scans = sorted(make_dataset_numpy(self.dir_A))
-        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)
+        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt)
 
         list_scans_b = sorted(make_dataset_numpy(self.dir_B))
-        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, opt)
+        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, test_group, opt)
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
             opt.max_dataset_size,
@@ -100,6 +105,7 @@ class UnalignedNumpyDataset(BaseDataset):
         )  # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
+        print(self.A_index.__len__())
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.

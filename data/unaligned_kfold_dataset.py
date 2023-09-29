@@ -51,7 +51,7 @@ def deterministic_split(files_list, k, seed_value=0):
     return sublists
 
 
-def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
+def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
     if opt.isTrain is True:
         return [
             str1
@@ -66,8 +66,9 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, opt):
         ]
     else:
         return [
-            str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
+            str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)
         ]
+
 
 def construct_index_list(paths, pixel_type, localisation, ct_type, max_size):
     with open("../index_%s_%s.json" % (localisation, ct_type), "r") as f:
@@ -119,15 +120,16 @@ class UnalignedKFoldDataset(BaseDataset):
         self.dir_B = os.path.join(
             opt.dataroot, "KVCT_fitted"  # opt.phase + "B"  #
         )  # create a path '/path/to/data/trainB'
-        with open("../data_%s_%s.json" % (opt.phase, opt.localisation), "r") as fp:
+        with open("../data_train_%s.json" % (opt.localisation), "r") as fp:
             data_groups = json.load(fp)
-        
-        data_group_to_exclude = data_groups[opt.fold]
+        with open("../data_test_%s.json" % (opt.localisation), "r") as fp:
+            test_group = json.load(fp)
+        data_group_to_exclude = data_groups[opt.fold] + test_group
         list_scans = sorted(make_dataset(self.dir_A))
-        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, opt)
+        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt)
 
         list_scans_b = sorted(make_dataset(self.dir_B))
-        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, opt)
+        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, test_group, opt)
 
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
