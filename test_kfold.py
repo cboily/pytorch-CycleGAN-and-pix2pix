@@ -219,9 +219,11 @@ with torch.no_grad():
         opt.seed = 53493403
         opt.isTrain = False
         result = []
+        result_mv = []
         name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
+            result_mv.append([])
             opt.fold = k
             print(f"FOLD {opt.fold}")
             print("--------------------------------")
@@ -270,20 +272,22 @@ with torch.no_grad():
             # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
             if opt.eval:
                 model.eval()
-            # log_name = os.path.join(opt.results_dir, opt.name, "metric_log_fold_{}.txt".format(str(k)))
-            log_name_mv = os.path.join(
+
+            """log_name_mv = os.path.join(
                 opt.results_dir, opt.name, "metric_mv_log_fold_{}.txt".format(str(k))
-            )
+            )"""
             # open(log_name, "w").close()
-            open(log_name_mv, "w").close()
+            # open(log_name_mv, "w").close()
             result_fold = {}
+            result_fold_mv = {}
             for i, data in enumerate(dataset):
                 result_data = {}
+                result_data_mv = {}
                 if i >= opt.num_test:  # only apply our model to opt.num_test images.
                     break
                 model.set_input(data)  # unpack data from data loader
                 data_name = os.path.split(str(data["A_paths"][0]))[1]
-                #print(data_name)
+                # print(data_name)
                 # result_data
                 model.test()  # run inference
                 visuals = model.get_current_visuals()  # get image results
@@ -312,10 +316,10 @@ with torch.no_grad():
                 result_data["SSIM"] = testssim(fakeB, realB).item()
                 result_data["PSNR"] = testpsnr(fakeB, realB).item()
 
-                test_mae_mv = mean_absolute_error(realA, realB)
-                test_rmse_mv = testrmse(realA, realB)
-                test_psnr_mv = testpsnr(realA, realB)
-                test_ssim_mv = testssim(realA, realB)
+                result_data_mv["MAE"] = mean_absolute_error(realA, realB).item()
+                result_data_mv["RMSE"] = testrmse(realA, realB).item()
+                result_data_mv["PSNR"] = testpsnr(realA, realB).item()
+                result_data_mv["SSIM"] = testssim(realA, realB).item()
 
                 """# create default evaluator for doctests
                     def eval_step(_, batch):
@@ -334,6 +338,7 @@ with torch.no_grad():
                 )
                 pprint(state.metrics)"""
                 result_fold[data_name] = result_data
+                result_fold_mv[data_name] = result_data_mv
 
                 """with open(log_name, "a") as log_file:
                     log_file.write(data_name)
@@ -346,7 +351,7 @@ with torch.no_grad():
                             test_ssim.item(),
                         )
                     )"""
-                with open(log_name_mv, "a") as log_file:
+                """with open(log_name_mv, "a") as log_file:
                     log_file.write(data_name)
                     log_file.write(
                         ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}\n"
@@ -356,9 +361,9 @@ with torch.no_grad():
                             test_rmse_mv.item(),
                             test_ssim_mv.item(),
                         )
-                    )
+                    )"""
 
-                    # log_file.write(", %s" % state.metrics)  # save the metrics values
+                # log_file.write(", %s" % state.metrics)  # save the metrics values
                 img_path = model.get_image_paths()  # get image paths
                 if i % 5 == 0:  # save images to an HTML file
                     print("processing (%04d)-th image... %s" % (i, img_path))
@@ -371,22 +376,28 @@ with torch.no_grad():
                         width=opt.display_winsize,
                         use_wandb=opt.use_wandb,
                     )
-                
+
             result[k].append(result_fold)
+            result_mv[k].append(result_fold_mv)
             webpage.save()  # save the HTML
         log_name = os.path.join(opt.results_dir, opt.name, "metric_log_fold.json")
         with open(log_name, "w") as fp:
             json.dump(result, fp, indent=4, sort_keys=True, default=str)
+        log_name_mv = os.path.join(opt.results_dir, opt.name, "metric_mv_log_fold.json")
+        with open(log_name_mv, "w") as fp:
+            json.dump(result_mv, fp, indent=4, sort_keys=True, default=str)
 
         # Write the results to a JSON file
         log_name = os.path.join(opt.results_dir, opt.name, "metrics_means_by_k.json")
-        # log_name2 = os.path.join(opt.results_dir, opt.name, "metrics_means_by_k2.json")
+        log_name_mv = os.path.join(
+            opt.results_dir, opt.name, "metrics_mv_means_by_k.json"
+        )
         # results, results2 =
         with open(log_name, "w") as file:
             json.dump(
                 rank_data_by_metrics(calculate_mean_metrics(result)), file, indent=4
             )
-        # with open(log_name2, "w") as file:
-        #    json.dump(rank_data_by_metrics(results2), file, indent=4)
+        with open(log_name_mv, "w") as file:
+            json.dump(calculate_mean_metrics(result_mv), file, indent=4)
 
         print("Results have been written to 'results.json'.")
