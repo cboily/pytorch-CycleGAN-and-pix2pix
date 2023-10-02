@@ -96,7 +96,7 @@ class BaseModel(ABC):
         if not self.isTrain or opt.continue_train:
             load_suffix = "iter_%d" % opt.load_iter if opt.load_iter > 0 else opt.epoch
             print("Model name loaded", load_suffix)
-            if hasattr(opt, "fold"):
+            if opt.fold != None:
                 load_suffix = "{}_{}".format(
                     opt.fold,
                     opt.load_iter if opt.load_iter > 0 else opt.epoch,
@@ -237,7 +237,7 @@ class BaseModel(ABC):
         Parameters:
             verbose (bool) -- if verbose: print the network architecture
         """
-        print("---------- Networks initialized -------------")
+        #print("---------- Networks initialized -------------")
         for name in self.model_names:
             if isinstance(name, str):
                 net = getattr(self, "net" + name)
@@ -251,7 +251,7 @@ class BaseModel(ABC):
                         trainable_params += param.numel()
                 if verbose:
                     print(net)
-                print(
+                """print(
                     "[Network %s] Total number of parameters : %.3f M"
                     % (name, num_params / 1e6)
                 )
@@ -259,7 +259,7 @@ class BaseModel(ABC):
                     "[Network %s] Total number of trainable parameters : %.3f M"
                     % (name, trainable_params / 1e6)
                 )
-        print("-----------------------------------------------")
+        print("-----------------------------------------------")"""
 
     def set_requires_grad(self, nets, requires_grad=False):
         """Set requies_grad=Fasle for all the networks to avoid unnecessary computations

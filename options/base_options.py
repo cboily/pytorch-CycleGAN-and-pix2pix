@@ -146,7 +146,6 @@ class BaseOptions:
         parser.add_argument(
             "--fold",
             type=int,
-            default=0,
             help="number of training fold",
         )
         parser.add_argument(
