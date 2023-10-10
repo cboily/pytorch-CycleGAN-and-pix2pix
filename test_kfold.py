@@ -214,20 +214,20 @@ with torch.no_grad():
             -1
         )  # no visdom display; the test code saves the results to a HTML file.
 
-        opt.num_folds = 5
-        opt.localisation = "ORL"
+        opt.num_folds = 1
+        opt.localisation = "Pelvis"
         opt.seed = 53493403
         opt.isTrain = False
         result = []
         result_mv = []
-        name = opt.name
+        #name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             result_mv.append([])
             opt.fold = k
             print(f"FOLD {opt.fold}")
             print("--------------------------------")
-            opt.name = name + str(opt.fold)
+            #opt.name = name + str(opt.fold)
             print("Name:", opt.name)
             dataset = create_dataset(
                 opt
