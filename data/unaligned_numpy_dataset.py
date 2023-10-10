@@ -71,10 +71,10 @@ class UnalignedNumpyDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, "MVCT"  # opt.phase + "A"
+            opt.dataroot, "MVCT_npy"  # opt.phase + "A_npy" #
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, "KVCT_fitted"  # opt.phase + "B"
+            opt.dataroot, "KVCT_fitted_npy"  # opt.phase + "B_npy" #
         )  # create a path '/path/to/data/trainB'
         with open("../data_train_%s.json" % (opt.localisation), "r") as fp:
             data_groups = json.load(fp)
@@ -83,10 +83,10 @@ class UnalignedNumpyDataset(BaseDataset):
             test_group = json.load(fp)
 
         data_group_to_exclude = data_groups[opt.fold] + test_group
-        list_scans = sorted(make_dataset_numpy(self.dir_A))
+        list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
         self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt)
 
-        list_scans_b = sorted(make_dataset_numpy(self.dir_B))
+        list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
         self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, test_group, opt)
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
@@ -105,7 +105,8 @@ class UnalignedNumpyDataset(BaseDataset):
         )  # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
-        print(self.A_index.__len__())
+        print(self.A_index.__len__(), self.A_paths.__len__())
+        print(self.B_index.__len__(), self.B_paths.__len__())
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -123,8 +124,8 @@ class UnalignedNumpyDataset(BaseDataset):
         A_path = self.A_index[index_A][0]  # make sure index is within then range
         A_slice = self.A_index[index_A][1]
         index_B = index % self.B_size
-        B_path = self.B_index[index_B][0]  # make sure index is within then range
-        B_slice = self.B_index[index_B][1]
+        B_path = self.B_index[index_A][0]  # make sure index is within then range
+        B_slice = self.B_index[index_A][1]
         transform = Compose(
             [
                 LoadNumpyArray(),
