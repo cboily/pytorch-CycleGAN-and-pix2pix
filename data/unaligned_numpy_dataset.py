@@ -27,8 +27,8 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
         return [
             str1
             for str1 in list_scans
-            if not any(str2 in str1 for str2 in data_group_to_exclude)
-        ]
+            if  any(str2 in str1 for str2 in data_groups)
+        ]#_to_exclude
     if hasattr(opt, "validation") is True:
         return [
             str1
@@ -71,18 +71,18 @@ class UnalignedNumpyDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, "MVCT_npy"  # opt.phase + "A_npy" #
+            opt.dataroot, "MVCT"  # opt.phase + "A_npy" #_npy
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, "KVCT_fitted_npy"  # opt.phase + "B_npy" #
+            opt.dataroot, "KVCT_fitted"  # opt.phase + "B_npy" #_npy
         )  # create a path '/path/to/data/trainB'
-        with open("../data_train_%s.json" % (opt.localisation), "r") as fp:
+        with open("../data_train_quartile_%s.json" % (opt.localisation), "r") as fp:
             data_groups = json.load(fp)
 
-        with open("../data_test_%s.json" % (opt.localisation), "r") as fp:
+        with open("../data_test_quartile_%s.json" % (opt.localisation), "r") as fp:
             test_group = json.load(fp)
 
-        data_group_to_exclude = data_groups[opt.fold] + test_group
+        data_group_to_exclude =  test_group#+ data_groups[opt.fold]
         list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
         self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt)
 
