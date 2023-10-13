@@ -32,6 +32,12 @@ class BaseOptions:
             help="name of the experiment. It decides where to store samples and models",
         )
         parser.add_argument(
+            "--datasplit",
+            type=str,
+            default="",
+            help="name of data split file. It decides the datalist to use",
+        )
+        parser.add_argument(
             "--gpu_ids",
             type=str,
             default="0",
