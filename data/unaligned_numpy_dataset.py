@@ -76,10 +76,10 @@ class UnalignedNumpyDataset(BaseDataset):
         self.dir_B = os.path.join(
             opt.dataroot, "KVCT_fitted"  # opt.phase + "B_npy" #_npy
         )  # create a path '/path/to/data/trainB'
-        with open("../data_train_quartile_%s.json" % (opt.localisation), "r") as fp:
+        with open("../data_train_%s_%s.json" % (opt.datasplit,opt.localisation), "r") as fp:
             data_groups = json.load(fp)
 
-        with open("../data_test_quartile_%s.json" % (opt.localisation), "r") as fp:
+        with open("../data_test_%s_%s.json" % (opt.datasplit, opt.localisation), "r") as fp:
             test_group = json.load(fp)
 
         data_group_to_exclude =  test_group#+ data_groups[opt.fold]
