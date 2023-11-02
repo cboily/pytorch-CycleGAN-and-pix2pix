@@ -38,6 +38,12 @@ class BaseOptions:
             help="name of data split file. It decides the datalist to use",
         )
         parser.add_argument(
+            "--localisation",
+            type=str,
+            default="",
+            help="anatomical region of data. It decides the data to use",
+        )
+        parser.add_argument(
             "--gpu_ids",
             type=str,
             default="0",
