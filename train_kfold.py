@@ -29,7 +29,6 @@ from models import create_model
 if __name__ == "__main__":
     opt = TrainOptions().parse()  # get training options
     opt.num_folds = 5
-    opt.localisation = "Pelvis"
 
     print(f"FOLD {opt.fold}")
     print("--------------------------------")

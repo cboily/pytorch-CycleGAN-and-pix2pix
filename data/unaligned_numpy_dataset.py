@@ -71,10 +71,10 @@ class UnalignedNumpyDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
         self.dir_A = os.path.join(
-            opt.dataroot, "MVCT_npy"  # opt.phase + "A_npy" #
+            opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
         )  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(
-            opt.dataroot, "KVCT_fitted_npy"  # opt.phase + "B_npy" #
+            opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
         )  # create a path '/path/to/data/trainB'
         with open("../data_train_%s_%s.json" % (opt.datasplit,opt.localisation), "r") as fp:
             data_groups = json.load(fp)
