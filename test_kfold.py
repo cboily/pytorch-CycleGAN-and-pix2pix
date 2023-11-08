@@ -35,8 +35,6 @@ import json
 
 # from torchmetrics import MeanAbsoluteError
 import torch
-from ignite.engine import Engine
-from ignite.metrics import PSNR, SSIM, MeanAbsoluteError, RootMeanSquaredError
 from monai.transforms import Compose, ScaleIntensityRange
 from torchmetrics import (
     MeanSquaredError,
@@ -57,6 +55,132 @@ except ImportError:
     print(
         'Warning: wandb package cannot be found. The option "--use_wandb" will result in error.'
     )
+
+
+def calculate_metrics(fakeB, realB):
+    result_data = {}
+    body_mask = realB > -600
+    background_mask = ~body_mask
+    # back_mask_f = fakeB > -600
+    realB_back = realB[background_mask]
+    fakeB_back = fakeB[background_mask]
+    realB = realB * body_mask
+    fakeB = fakeB * body_mask
+    # print("Fa", fakeB.min(), fakeB.max())
+    threshold_value = 150
+    bone_mask = realB >= threshold_value
+    tissu_mask_s = (
+        realB < threshold_value
+    )  # .cpu() &realB.cpu() >-600).to(device="cuda:0")#
+    tissu_mask = tissu_mask_s & body_mask
+    body_fraction = np.mean(body_mask == 1)
+    back_fraction = np.mean(background_mask == 1)
+    tissu_fraction = np.mean(tissu_mask == 1)
+    bone_fraction = np.mean(bone_mask == 1)
+    """print(
+        "background",
+        back_fraction,
+        "body",
+        body_fraction,
+        "bone",
+        bone_fraction,
+        "tissu",
+        tissu_fraction,
+    )"""
+
+    # bone_mask_fake = (fakeB >= threshold_value)
+    # bone_mask = bone_mask_fake | bone_mask_real
+    fakeB_tissu = fakeB[tissu_mask]  # *
+    fakeB_bone = fakeB[bone_mask]  # *
+    realB_tissu = realB[tissu_mask]  # *
+    realB_bone = realB[bone_mask]  # *
+    """print(
+        "real_tissu",
+        realB_tissu.min(),
+        realB_tissu.max(),
+        realB_tissu.size(),
+    )
+    print(
+        "fake_tissu",
+        fakeB_tissu.min(),
+        fakeB_tissu.max(),
+        fakeB_tissu.size(),
+        np.mean(fakeB_tissu == 0),
+    )
+
+    print(
+        "bone_real",
+        realB_bone.min(),
+        realB_bone.max(),
+        bone_mask.size(),
+        realB_bone.size(),
+    )
+    print(
+        "bone_fake", fakeB_bone.min(), fakeB_bone.max(), fakeB_bone.size()
+    )
+    print(
+        "background", fakeB_back.min(), fakeB_back.max(), fakeB_back.size()
+    )
+    import matplotlib.pyplot as plt
+
+    plt.imshow(fakeB[0, 0, :, :].cpu(), cmap='gray')
+    plt.show()
+    plt.imshow(fakeB_back[0, 0, :, :].cpu(), cmap="gray")
+    plt.show()
+    plt.imshow(tissu_mask[0, 0, :, :].cpu())  # realB_tissu
+    plt.show()
+    plt.figure(figsize=(10, 10))
+    plt.subplot(2, 2, 1)
+    plt.imshow(fakeB_tissu[0, 0, :, :].cpu(), cmap="gray")
+    plt.title("Image tissu")
+    plt.subplot(2, 2, 2)
+    plt.imshow(realB_tissu[0, 0, :, :].cpu(), cmap="gray")
+    plt.subplot(2, 2, 3)
+    plt.imshow(fakeB_bone[0, 0, :, :].cpu(), cmap="gray")
+    plt.title("Image Bone")
+    plt.subplot(2, 2, 4)
+    plt.imshow(realB_bone[0, 0, :, :].cpu(), cmap="gray")
+    plt.show()"""
+
+    result_data["MAE"] = mean_absolute_error(fakeB, realB).item()
+    testssim = StructuralSimilarityIndexMeasure(
+        reduction="none", return_full_image=True
+    ).to(device="cuda:0")
+    testpsnr = PeakSignalNoiseRatio(reduction="none", dim=0, data_range=1000).to(
+        device="cuda:0"
+    )
+    testrmse = MeanSquaredError(squared=False).to(device="cuda:0")
+    result_data["RMSE"] = testrmse(fakeB, realB).item()
+    ssim_b, ssim = testssim(fakeB, realB)
+    result_data["SSIM"] = ssim_b.item()
+    psnr = testpsnr(fakeB, realB)
+    result_data["PSNR"] = torch.mean(psnr[torch.flatten(body_mask)]).item()  #
+    # print(result_data["PSNR"].size(), torch.mean(result_data["PSNR"]).item() )
+    result_data["MAE_back"] = mean_absolute_error(fakeB_back, realB_back).item()
+    result_data["MAE_bone"] = mean_absolute_error(fakeB_bone, realB_bone).item()
+    result_data["MAE_tissu"] = mean_absolute_error(fakeB_tissu, realB_tissu).item()
+    result_data["RMSE_bone"] = testrmse(fakeB_bone, realB_bone).item()
+    result_data["RMSE_tissu"] = testrmse(fakeB_tissu, realB_tissu).item()
+    result_data["RMSE_back"] = testrmse(fakeB_back, realB_back).item()
+    result_data["SSIM_bone"] = torch.mean(
+        ssim[bone_mask]
+    ).item()  # testssim(fakeB_bone, realB_bone).item()
+    result_data["SSIM_tissu"] = torch.mean(
+        ssim[tissu_mask]
+    ).item()  # testssim(fakeB_tissu, realB_tissu).item()
+    result_data["SSIM_back"] = torch.mean(ssim[background_mask]).item()
+    # result_data["PSNR_bone"] = testpsnr(fakeB_bone, realB_bone).item()
+    # result_data["PSNR_tissu"] = testpsnr(fakeB_tissu, realB_tissu).item()
+    result_data["PSNR_bone"] = torch.mean(
+        psnr[torch.flatten(bone_mask)]
+    ).item()  # testpsnr(fakeB_bone, realB_bone).item()
+    result_data["PSNR_tissu"] = torch.mean(psnr[torch.flatten(tissu_mask)]).item()
+    result_data["background"] = back_fraction
+    result_data["tissu"] = tissu_fraction
+    result_data["bone"] = bone_fraction
+    # print('tissu',result_data["SSIM_tissu"].shape, result_data["SSIM_tissu"],'background', result_data["SSIM_back"].shape, result_data["SSIM_back"])
+    # print(result_data)
+    return result_data
 
 
 def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float]:
@@ -122,33 +246,6 @@ def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float
                 "var_RMSE": var_RMSE,
                 "var_SSIM": var_SSIM,"""
             results.append(sublist_result)
-            """mean_MAE = total_mae / num_items
-            mean_PSNR = total_psnr / num_items
-            mean_RMSE = total_rmse / num_items
-            mean_SSIM = total_ssim / num_items
-
-            # Calculate the variance and standard deviation for each metric
-            var_MAE, stddev_MAE = calc_variance_and_stddev(mae_values, mean_MAE)
-            var_PSNR, stddev_PSNR = calc_variance_and_stddev(psnr_values, mean_PSNR)
-            var_RMSE, stddev_RMSE = calc_variance_and_stddev(rmse_values, mean_RMSE)
-            var_SSIM, stddev_SSIM = calc_variance_and_stddev(ssim_values, mean_SSIM)
-
-            # Store the mean, variance, and standard deviation for each metric in the results list
-            sublist_result2 = {
-                "mean_MAE": mean_MAE,
-                "mean_PSNR": mean_PSNR,
-                "mean_RMSE": mean_RMSE,
-                "mean_SSIM": mean_SSIM,
-                "var_MAE": var_MAE,
-                "var_PSNR": var_PSNR,
-                "var_RMSE": var_RMSE,
-                "var_SSIM": var_SSIM,
-                "stddev_MAE": stddev_MAE,
-                "stddev_PSNR": stddev_PSNR,
-                "stddev_RMSE": stddev_RMSE,
-                "stddev_SSIM": stddev_SSIM,
-            }
-            results2.append(sublist_result2)"""
 
     return results  # , results2
 
@@ -220,14 +317,18 @@ with torch.no_grad():
         opt.isTrain = False
         result = []
         result_mv = []
-        #name = opt.name
+        result_ana = []
+        result_ana_mv = []
+        # name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             result_mv.append([])
+            result_ana.append([])
+            result_ana_mv.append([])
             opt.fold = k
             print(f"FOLD {opt.fold}")
             print("--------------------------------")
-            #opt.name = name + str(opt.fold)
+            # opt.name = name + str(opt.fold)
             print("Name:", opt.name)
             dataset = create_dataset(
                 opt
@@ -272,17 +373,12 @@ with torch.no_grad():
             # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
             if opt.eval:
                 model.eval()
-
-            """log_name_mv = os.path.join(
-                opt.results_dir, opt.name, "metric_mv_log_fold_{}.txt".format(str(k))
-            )"""
-            # open(log_name, "w").close()
-            # open(log_name_mv, "w").close()
             result_fold = {}
             result_fold_mv = {}
+            result_fold_ana = {}
+            result_fold_ana_mv = {}
             for i, data in enumerate(dataset):
-                result_data = {}
-                result_data_mv = {}
+                # result_data_mv = {}
                 if i >= opt.num_test:  # only apply our model to opt.num_test images.
                     break
                 model.set_input(data)  # unpack data from data loader
@@ -299,75 +395,29 @@ with torch.no_grad():
                             a_max=1.0,
                             b_min=-600.0,
                             b_max=400.0,
-                            clip=True,
+                            # clip=True,
                         ),
                     ]
                 )
                 fakeB = out_transforms(visuals["fake_B"])
                 realB = out_transforms(visuals["real_B"])
                 realA = out_transforms(visuals["real_A"])
-                # print("Fa", fakeB.min(), fakeB.max())
-
-                result_data["MAE"] = mean_absolute_error(fakeB, realB).item()
-                testssim = StructuralSimilarityIndexMeasure().to(device="cuda:0")
-                testpsnr = PeakSignalNoiseRatio().to(device="cuda:0")
-                testrmse = MeanSquaredError(squared=False).to(device="cuda:0")
-                result_data["RMSE"] = testrmse(fakeB, realB).item()
-                result_data["SSIM"] = testssim(fakeB, realB).item()
-                result_data["PSNR"] = testpsnr(fakeB, realB).item()
-
-                result_data_mv["MAE"] = mean_absolute_error(realA, realB).item()
-                result_data_mv["RMSE"] = testrmse(realA, realB).item()
-                result_data_mv["PSNR"] = testpsnr(realA, realB).item()
-                result_data_mv["SSIM"] = testssim(realA, realB).item()
-
-                """# create default evaluator for doctests
-                    def eval_step(_, batch):
-                        return batch
-                default_evaluator = Engine(eval_step)
-                mae = MeanAbsoluteError()
-                psnr = PSNR(data_range=1000)
-                rmse = RootMeanSquaredError()
-                ssim = SSIM(data_range=1000)
-                mae.attach(default_evaluator, "mae")
-                psnr.attach(default_evaluator, "psnr")
-                rmse.attach(default_evaluator, "rmse")
-                ssim.attach(default_evaluator, "ssim")
-                state = default_evaluator.run(
-                    [[fakeB, realB]], epoch_length=1, max_epochs=1
-                )
-                pprint(state.metrics)"""
-                result_fold[data_name] = result_data
-                result_fold_mv[data_name] = result_data_mv
-
-                """with open(log_name, "a") as log_file:
-                    log_file.write(data_name)
-                    log_file.write(
-                        ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}\n"
-                        % (
-                            test_mae.item(),
-                            test_psnr.item(),
-                            test_rmse.item(),
-                            test_ssim.item(),
-                        )
-                    )"""
-                """with open(log_name_mv, "a") as log_file:
-                    log_file.write(data_name)
-                    log_file.write(
-                        ", {'mae_torch': %s, 'psnr_torch': %s, 'rmse_torch': %s, 'ssim_torch': %s}\n"
-                        % (
-                            test_mae_mv.item(),
-                            test_psnr_mv.item(),
-                            test_rmse_mv.item(),
-                            test_ssim_mv.item(),
-                        )
-                    )"""
+                fakeA = out_transforms(visuals["fake_A"])
+                recB = out_transforms(visuals["rec_B"])
+                result_fold[data_name] = calculate_metrics(fakeB, realB)
+                # print("before mv process", result_fold[data_name])
+                result_fold_mv[data_name] = calculate_metrics(realA, realB)
+                # print("MV metrics", result_fold_mv[data_name])
+                result_fold_ana[data_name] = calculate_metrics(recB, realB)
+                # print("Ana kv", result_fold_ana[data_name])
+                result_fold_ana_mv[data_name] = calculate_metrics(fakeA, realB)
+                # print("Ana MV", result_fold_ana_mv[data_name])
 
                 # log_file.write(", %s" % state.metrics)  # save the metrics values
                 img_path = model.get_image_paths()  # get image paths
                 if i % 5 == 0:  # save images to an HTML file
                     print("processing (%04d)-th image... %s" % (i, img_path))
-                if 1000 < i < 1200 or 5000 < i < 5200 or 10000 < i < 10200:
+                    # if 1000 < i < 1200 or 5000 < i < 5200 or 10000 < i < 10200:
                     save_images(
                         webpage,
                         visuals,
@@ -379,25 +429,37 @@ with torch.no_grad():
 
             result[k].append(result_fold)
             result_mv[k].append(result_fold_mv)
+            result_ana[k].append(result_fold_ana)
+            result_ana_mv[k].append(result_fold_ana_mv)
             webpage.save()  # save the HTML
-        log_name = os.path.join(opt.results_dir, opt.name, "metric_log_fold.json")
+        log_name = os.path.join(web_dir, "metric_log_fold.json")
         with open(log_name, "w") as fp:
             json.dump(result, fp, indent=4, sort_keys=True, default=str)
-        log_name_mv = os.path.join(opt.results_dir, opt.name, "metric_mv_log_fold.json")
+        log_name_mv = os.path.join(web_dir, "metric_mv_log_fold.json")
         with open(log_name_mv, "w") as fp:
             json.dump(result_mv, fp, indent=4, sort_keys=True, default=str)
-
+        log_name_ana = os.path.join(web_dir, "metric_ana_log_fold.json")
+        with open(log_name_ana, "w") as fp:
+            json.dump(result_ana, fp, indent=4, sort_keys=True, default=str)
+        log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_log_fold.json")
+        with open(log_name_ana_mv, "w") as fp:
+            json.dump(result_ana_mv, fp, indent=4, sort_keys=True, default=str)
         # Write the results to a JSON file
-        log_name = os.path.join(opt.results_dir, opt.name, "metrics_means_by_k.json")
-        log_name_mv = os.path.join(
-            opt.results_dir, opt.name, "metrics_mv_means_by_k.json"
-        )
-        # results, results2 =
+        log_name = os.path.join(web_dir, "metrics_means_by_k.json")
+        log_name_mv = os.path.join(web_dir, "metrics_mv_means_by_k.json")
+
         with open(log_name, "w") as file:
             json.dump(
                 rank_data_by_metrics(calculate_mean_metrics(result)), file, indent=4
             )
         with open(log_name_mv, "w") as file:
             json.dump(calculate_mean_metrics(result_mv), file, indent=4)
-
-        print("Results have been written to 'results.json'.")
+        log_name_ana = os.path.join(web_dir, "metric_ana_means_by_k.json")
+        with open(log_name_ana, "w") as file:
+            json.dump(
+                rank_data_by_metrics(calculate_mean_metrics(result_ana)), file, indent=4
+            )
+        log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_means_by_k.json")
+        with open(log_name_ana_mv, "w") as file:
+            json.dump(calculate_mean_metrics(result_ana_mv), file, indent=4)
+        print("Results have been written to 'metric_log_fold.json'.")
