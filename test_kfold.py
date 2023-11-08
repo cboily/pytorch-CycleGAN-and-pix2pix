@@ -312,7 +312,6 @@ with torch.no_grad():
         )  # no visdom display; the test code saves the results to a HTML file.
 
         opt.num_folds = 1
-        opt.localisation = "Pelvis"
         opt.seed = 53493403
         opt.isTrain = False
         result = []
@@ -378,7 +377,6 @@ with torch.no_grad():
             result_fold_ana = {}
             result_fold_ana_mv = {}
             for i, data in enumerate(dataset):
-                # result_data_mv = {}
                 if i >= opt.num_test:  # only apply our model to opt.num_test images.
                     break
                 model.set_input(data)  # unpack data from data loader
