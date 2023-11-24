@@ -66,13 +66,14 @@ def calculate_metrics(fakeB, realB):
     fakeB_back = fakeB[background_mask]
     realB = realB * body_mask
     fakeB = fakeB * body_mask
-    # print("Fa", fakeB.min(), fakeB.max())
+    print("Fa", fakeB.shape, fakeB.min(), fakeB.max())  # fakeB,
     threshold_value = 150
     bone_mask = realB >= threshold_value
     tissu_mask_s = (
         realB < threshold_value
     )  # .cpu() &realB.cpu() >-600).to(device="cuda:0")#
     tissu_mask = tissu_mask_s & body_mask
+    print(body_mask.dtype, body_mask.shape)
     body_fraction = np.mean(body_mask == 1)
     back_fraction = np.mean(background_mask == 1)
     tissu_fraction = np.mean(tissu_mask == 1)
@@ -297,6 +298,14 @@ def plot_metrics(ranked_data: List[Tuple[Dict[str, float], int]]):
     plt.show()
 
 
+def command_iteration(method):
+    print(f"{method.GetOptimizerIteration():3} " + f"= {method.GetMetricValue():10.5f}")
+
+
+def iteration_callback(filter):
+    print("\r{0:.2f}".format(filter.GetMetricValue()), end="")
+
+
 with torch.no_grad():
     if __name__ == "__main__":
         opt = TestOptions().parse()  # get test options
@@ -318,12 +327,14 @@ with torch.no_grad():
         result_mv = []
         result_ana = []
         result_ana_mv = []
+        result_reg = []
         # name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             result_mv.append([])
             result_ana.append([])
             result_ana_mv.append([])
+            result_reg.append([])
             opt.fold = k
             print(f"FOLD {opt.fold}")
             print("--------------------------------")
@@ -376,11 +387,20 @@ with torch.no_grad():
             result_fold_mv = {}
             result_fold_ana = {}
             result_fold_ana_mv = {}
+            result_fold_reg = {}
+            prev_patient_name = None
+            stacked_fakeBs = []
+            stacked_realBs = []
+            stacked_fakeBs_bone = []
+            stacked_realBs_bone = []
+            stacked_name_file = []
             for i, data in enumerate(dataset):
                 if i >= opt.num_test:  # only apply our model to opt.num_test images.
                     break
                 model.set_input(data)  # unpack data from data loader
                 data_name = os.path.split(str(data["A_paths"][0]))[1]
+                patient_id = data_name.split("-")[0]
+                # print('Patient', patient_id, prev_patient_name)
                 # print(data_name)
                 # result_data
                 model.test()  # run inference
@@ -402,7 +422,393 @@ with torch.no_grad():
                 realA = out_transforms(visuals["real_A"])
                 fakeA = out_transforms(visuals["fake_A"])
                 recB = out_transforms(visuals["rec_B"])
+                threshold_value = 150
+                bone_mask = realB >= threshold_value
+                fakeB_bone = fakeB * bone_mask
+                realB_bone = realB * bone_mask
+                if prev_patient_name is None or patient_id != prev_patient_name:
+                    # Reset the stacked_fakeBs list when data_name changes
+                    print("reset")
+                    stacked_fakeBs = []
+                    stacked_realBs = []
+                    stacked_fakeBs_bone = []
+                    stacked_realBs_bone = []
+                    stacked_name_file = []
+                    prev_patient_name = patient_id
+
+                # Append transformed fakeB image to the list
+                stacked_fakeBs.append(fakeB)
+                stacked_realBs.append(realB)
+                stacked_fakeBs_bone.append(fakeB_bone)
+                stacked_realBs_bone.append(realB_bone)
+                stacked_name_file.append(data_name)
+                print(prev_patient_name, len(stacked_fakeBs), fakeB.shape, fakeB.dtype)
+                # Ensure the stack doesn't exceed a length of 7
+                if len(stacked_fakeBs) > 7:
+                    stacked_fakeBs.pop(0)
+                    stacked_realBs.pop(0)
+                    stacked_fakeBs_bone.pop(0)
+                    stacked_realBs_bone.pop(0)
+                    stacked_name_file.pop(0)
+
+                # Create the sliding stack of fakeB images
+                if len(stacked_fakeBs) == 7:
+                    sliding_stack_fakeB = np.stack(stacked_fakeBs, axis=2)
+                    sliding_stack_realB = np.stack(stacked_realBs, axis=2)
+                    sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
+                    sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
+                    print(
+                        "Sliding stack, fakeB",
+                        sliding_stack_fakeB.shape,
+                        sliding_stack_fakeB.dtype,
+                        sliding_stack_fakeB_bone.shape,
+                        "realB",
+                        sliding_stack_realB.shape,
+                        sliding_stack_realB_bone.shape,
+                    )
+                    import matplotlib.pyplot as plt
+
+                    # Visualize the original realB and aligned fakeB images using matplotlib
+                    plt.figure(figsize=(10, 5))
+
+                    plt.subplot(1, 2, 1)
+                    plt.imshow(
+                        sliding_stack_realB[0, 0, 0, :, :], cmap="gray"
+                    )  # Assuming it's a 3D image stack, selecting the first slice
+                    plt.title("Original RealB")
+                    plt.axis("off")
+
+                    plt.subplot(1, 2, 2)
+                    plt.imshow(
+                        sliding_stack_fakeB_bone[0, 0, 0, :, :], cmap="gray"
+                    )  # Assuming it's a 3D image stack, selecting the first slice
+                    plt.title(" FakeB")
+                    plt.axis("off")
+
+                    plt.tight_layout()
+                    plt.show()
+
+                    moving = sitk.GetImageFromArray(
+                        sliding_stack_fakeB_bone[0, 0, :, :, :]
+                    )  # fakeB_image
+                    fixed = sitk.GetImageFromArray(
+                        sliding_stack_realB_bone[0, 0, :, :, :]
+                    )  # realB_image
+                    moving_full = sitk.GetImageFromArray(
+                        sliding_stack_fakeB[0, 0, :, :, :]
+                    )
+                    fixed_full = sitk.GetImageFromArray(
+                        sliding_stack_realB[0, 0, :, :, :]
+                    )
+                    # fixed_image.SetOrigin([0,0,0])
+                    # fixed_image.SetDimension
+
+                    # print('fakeB image', fakeB_image.GetSize(), 'realB', realB_image.GetSize())
+
+                    """elastixImageFilter = sitk.ElastixImageFilter()
+                    elastixImageFilter.SetFixedImage(realB_image)
+                    elastixImageFilter.SetMovingImage(fakeB_image)
+
+                    parameterMapVector = sitk.VectorOfParameterMap()
+                    parameterMapVector.append(sitk.GetDefaultParameterMap("affine"))
+                    #parameterMapVector.append(sitk.GetDefaultParameterMap("bspline"))
+                    elastixImageFilter.SetParameterMap(parameterMapVector)
+
+                    elastixImageFilter.Execute()
+                    resultImage= elastixImageFilter.GetResultImage()"""
+
+                    """registration_method = sitk.ImageRegistrationMethod()
+                    print('Fixed image',fixed_image, fixed_image.GetSize(), fixed_image.GetSpacing(), fixed_image.GetOrigin())
+                    transformDomainMeshSize = [8] * moving_image.GetDimension()
+                    print('transform', transformDomainMeshSize)
+                    # Determine the number of BSpline control points using the physical 
+                    # spacing we want for the finest resolution control grid. 
+                    grid_physical_spacing = [50.0, 50.0, 50.0] # A control point every 50mm
+                    image_physical_size = [size*spacing for size,spacing in zip(fixed_image.GetSize(), fixed_image.GetSpacing())]
+                    mesh_size = [int(image_size/grid_spacing + 0.5) \
+                                for image_size,grid_spacing in zip(image_physical_size,grid_physical_spacing)]
+                    
+                    # The starting mesh size will be 1/4 of the original, it will be refined by 
+                    # the multi-resolution framework.
+                    mesh_size = [int(sz/4 + 0.5) for sz in mesh_size]
+                    print('Mesh', image_physical_size, mesh_size)
+                    initial_transform = sitk.BSplineTransformInitializer(image1 = fixed_image, 
+                                                                        transformDomainMeshSize = mesh_size, order=3)    
+                    print(initial_transform)
+                    # Instead of the standard SetInitialTransform we use the BSpline specific method which also
+                    # accepts the scaleFactors parameter to refine the BSpline mesh. In this case we start with 
+                    # the given mesh_size at the highest pyramid level then we double it in the next lower level and
+                    # in the full resolution image we use a mesh that is four times the original size.
+                    registration_method.SetInitialTransformAsBSpline(initial_transform,
+                                                                    inPlace=False,
+                                                                    scaleFactors=[1,2,1])
+
+                    registration_method.SetMetricAsMeanSquares()
+                    registration_method.SetMetricSamplingStrategy(registration_method.RANDOM)
+                    registration_method.SetMetricSamplingPercentage(0.01)
+                    #registration_method.SetMetricFixedMask(body)
+                        
+                    registration_method.SetShrinkFactorsPerLevel(shrinkFactors = [4,2,1])
+                    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
+                    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+
+                    registration_method.SetInterpolator(sitk.sitkLinear)
+                    registration_method.SetOptimizerAsLBFGS2(solutionAccuracy=1e-2, numberOfIterations=100, deltaConvergenceTolerance=0.01)
+
+                    registration_method.AddCommand(sitk.sitkIterationEvent, lambda: iteration_callback(registration_method))
+
+                    final_transformation = registration_method.Execute(fixed_image, moving_image)
+                    print('\nOptimizer\'s stopping condition, {0}'.format(registration_method.GetOptimizerStopConditionDescription()))
+                    
+                    transformed_segmentation = sitk.Resample(
+                                         fixed_image,
+                                         final_transformation, 
+                                         sitk.sitkNearestNeighbor,
+                                         0.0                                        )"""
+                    ##B Spline
+                    """transformDomainMeshSize = [8] * moving.GetDimension()
+                    tx = sitk.BSplineTransformInitializer(fixed, transformDomainMeshSize)
+
+                    print("Initial Parameters:")
+                    print(tx.GetParameters())
+
+                    R = sitk.ImageRegistrationMethod()
+                    R.SetMetricAsCorrelation()
+
+                    R.SetOptimizerAsLBFGSB(
+                        gradientConvergenceTolerance=1e-5,
+                        numberOfIterations=100,
+                        maximumNumberOfCorrections=5,
+                        maximumNumberOfFunctionEvaluations=1000,
+                        costFunctionConvergenceFactor=1e7,
+                    )
+                    R.SetInitialTransform(tx, True)
+                    R.SetInterpolator(sitk.sitkLinear)
+
+                    R.AddCommand(sitk.sitkIterationEvent, lambda: command_iteration(R))
+
+                    outTx = R.Execute(fixed, moving)
+
+                    print("-------")
+                    print(outTx)
+                    print(f"Optimizer stop condition: {R.GetOptimizerStopConditionDescription()}")
+                    print(f" Iteration: {R.GetOptimizerIteration()}")
+                    print(f" Metric value: {R.GetMetricValue()}")
+
+                    sitk.WriteTransform(outTx, 'transform.txt')
+
+                    resampler = sitk.ResampleImageFilter()
+                    resampler.SetReferenceImage(fixed)
+                    resampler.SetInterpolator(sitk.sitkLinear)
+                    resampler.SetDefaultPixelValue(100)
+                    resampler.SetTransform(outTx)
+
+                    out = resampler.Execute(moving)
+                    simg1 = sitk.Cast(sitk.RescaleIntensity(fixed), sitk.sitkUInt8)
+                    simg2 = sitk.Cast(sitk.RescaleIntensity(out), sitk.sitkUInt8)
+                    cimg = sitk.Compose(simg1, simg2, simg1 // 2.0 + simg2 // 2.0)"""
+
+                    ###Euler 3D
+                    R = sitk.ImageRegistrationMethod()
+
+                    R.SetMetricAsCorrelation()
+
+                    R.SetOptimizerAsRegularStepGradientDescent(
+                        learningRate=2.0,
+                        minStep=1e-4,
+                        numberOfIterations=500,
+                        gradientMagnitudeTolerance=1e-8,
+                    )
+                    R.SetOptimizerScalesFromIndexShift()
+
+                    tx = sitk.CenteredTransformInitializer(
+                        fixed,
+                        moving,
+                        sitk.Euler3DTransform(),
+                        sitk.CenteredTransformInitializerFilter.GEOMETRY,
+                    )
+                    R.SetInitialTransform(tx)
+
+                    R.SetInterpolator(sitk.sitkLinear)
+
+                    # R.AddCommand(sitk.sitkIterationEvent, lambda: command_iteration(R))
+
+                    outTx = R.Execute(fixed, moving)
+
+                    print("-------")
+                    print(outTx)
+                    print(
+                        f"Optimizer stop condition: {R.GetOptimizerStopConditionDescription()}"
+                    )
+                    print(f" Iteration: {R.GetOptimizerIteration()}")
+                    print(f" Metric value: {R.GetMetricValue()}")
+
+                    sitk.WriteTransform(outTx, "transform.txt")
+
+                    resampler = sitk.ResampleImageFilter()
+                    resampler.SetReferenceImage(fixed)
+                    resampler.SetInterpolator(sitk.sitkLinear)
+                    resampler.SetDefaultPixelValue(100)
+                    resampler.SetTransform(outTx)
+
+                    out = resampler.Execute(moving)
+                    out_full = resampler.Execute(moving_full)
+                    """resampler_full = sitk.ResampleImageFilter()
+                    resampler_full.SetReferenceImage(fixed_full)
+                    resampler_full.SetInterpolator(sitk.sitkLinear)
+                    resampler_full.SetDefaultPixelValue(100)
+                    resampler_full.SetTransform(outTx)
+                    out_full_body= resampler_full.Execute(moving_full)"""
+                    # cimg = sitk.Compose(out_full_body, out_full, out_full_body // 2.0 + out_full // 2.0)
+                    simg1 = sitk.Cast(sitk.RescaleIntensity(fixed), sitk.sitkUInt8)
+                    simg2 = sitk.Cast(sitk.RescaleIntensity(out), sitk.sitkUInt8)
+                    simg3 = sitk.Cast(sitk.RescaleIntensity(fixed_full), sitk.sitkUInt8)
+                    simg4 = sitk.Cast(sitk.RescaleIntensity(out_full), sitk.sitkUInt8)
+                    cimg = sitk.Compose(simg1, simg2, simg1 // 2.0 + simg2 // 2.0)
+                    # cimg = sitk.Compose(fixed, out, fixed // 2.0 + out // 2.0)
+                    # cimg2 = sitk.Compose(fixed_full, out_full, fixed_full // 2.0 + out_full // 2.0)
+                    cimg2 = sitk.Compose(simg3, simg4, simg3 // 2.0 + simg4 // 2.0)
+
+                    # Define the registration method (rigid registration)
+                    """registration_method = sitk.ImageRegistrationMethod()
+
+                    # Define the metric, optimizer, interpolator, and transform for the registration
+                    registration_method.SetMetricAsMeanSquares()
+                    registration_method.SetOptimizerAsGradientDescent(learningRate=0.1, numberOfIterations=100)
+                    registration_method.SetInterpolator(sitk.sitkLinear)
+
+                    initial_transform = sitk.CenteredTransformInitializer(
+                        realB_image,fakeB_image, sitk.Euler3DTransform()
+                    )
+
+                    registration_method.SetInitialTransform(initial_transform, inPlace=False)
+                    #registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4, 2, 1])
+                    #registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2, 1, 0])
+
+                    # Execute the registration
+                    final_transform = registration_method.Execute(realB_image, fakeB_image)
+
+                    # Apply the final transform to align the fakeB image onto the realB image
+                    registered_fakeB = sitk.Resample(fakeB_image, realB_image, final_transform, sitk.sitkLinear, 0.0)
+
+                    # Get the aligned fakeB array"""
+                    aligned_fakeB_array = sitk.GetArrayFromImage(
+                        out
+                    )  # registered_fakeBtransformed_segmentation
+                    aligned_realB_array_full = sitk.GetArrayFromImage(fixed_full)
+                    aligned_fakeB_array_full = sitk.GetArrayFromImage(out_full)
+                    composition = sitk.GetArrayFromImage(cimg)
+                    composition2 = sitk.GetArrayFromImage(cimg2)
+                    print(
+                        "aligned fakeB",
+                        aligned_fakeB_array_full.dtype,
+                        aligned_fakeB_array_full.min(),
+                        aligned_fakeB_array_full.max(),
+                        aligned_fakeB_array_full.shape,
+                    )  #
+                    aligned_fakeB_array_full_t = fakeB.new_tensor(
+                        [[np.array(aligned_fakeB_array_full)]]
+                    )  # ,dtype= float,device='cuda:0')
+                    # aligned_fakeB_array_full_t = aligned_fakeB_array_full_t.unsqueeze(0).unsqueeze(0)
+                    aligned_realB_array_full_t = realB.new_tensor(
+                        [[np.array(aligned_realB_array_full)]]
+                    )  # ,dtype= float,device='cuda:0')
+                    # aligned_realB_array_full_t = aligned_realB_array_full_t.unsqueeze(0).unsqueeze(0)
+                    print(
+                        "aligned torch",
+                        aligned_fakeB_array_full_t.dtype,
+                        aligned_fakeB_array_full_t.shape,
+                        aligned_realB_array_full_t.shape,
+                    )
+                    for slice in range(0, aligned_fakeB_array.shape[0]):
+                        result_fold_reg[stacked_name_file[slice]] = calculate_metrics(
+                            aligned_fakeB_array_full_t[:, :, slice, :, :],  #
+                            aligned_realB_array_full_t[:, :, slice, :, :],  #
+                        )
+                        print(
+                            stacked_name_file[slice],
+                            result_fold_reg[stacked_name_file[slice]],
+                        )
+                        plt.figure(figsize=(15, 10))
+
+                        plt.subplot(2, 3, 1)
+                        plt.imshow(
+                            sliding_stack_realB[0, 0, slice, :, :], cmap="gray"
+                        )  # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Original RealB")
+                        plt.axis("off")
+
+                        plt.subplot(2, 3, 2)
+                        plt.imshow(
+                            composition[slice, :, :], cmap="gray"
+                        )  # sliding_stack_fakeB[0,0,slice,:, :] # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Original FakeB")
+                        plt.axis("off")
+
+                        plt.subplot(2, 3, 3)
+                        plt.imshow(
+                            aligned_fakeB_array[slice, :, :], cmap="gray"
+                        )  # # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Aligned FakeB")
+                        plt.axis("off")
+
+                        plt.subplot(2, 3, 4)
+                        plt.imshow(
+                            sliding_stack_realB[0, 0, slice, :, :], cmap="gray"
+                        )  # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Original RealB")
+                        plt.axis("off")
+
+                        plt.subplot(2, 3, 5)
+                        plt.imshow(
+                            composition2[slice, :, :], cmap="gray"
+                        )  # sliding_stack_fakeB[0,0,slice,:, :] # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Original FakeB")
+                        plt.axis("off")
+
+                        plt.subplot(2, 3, 6)
+                        plt.imshow(
+                            aligned_fakeB_array_full[slice, :, :], cmap="gray"
+                        )  # # Assuming it's a 3D image stack, selecting the first slice
+                        plt.title("Aligned FakeB")
+                        plt.axis("off")
+
+                        plt.tight_layout()
+                        plt.show()
+                    stacked_fakeBs = stacked_fakeBs[-2:]
+                    stacked_realBs = stacked_realBs[-2:]
+                    stacked_fakeBs_bone = stacked_fakeBs_bone[-2:]
+                    stacked_realBs_bone = stacked_realBs_bone[-2:]
+                    stacked_name_file = stacked_name_file[-2:]
+
+                    """import plotly.graph_objs as go
+                    from plotly.subplots import make_subplots
+
+                    # Assuming aligned_fakeB_array is the NumPy array of the aligned fakeB image
+                    # Assuming sliding_stack_realB is the original realB image
+
+                    # Create Plotly figure with subplots
+                    fig = make_subplots(rows=1, cols=2, subplot_titles=('Original RealB', 'Aligned FakeB'))
+
+                    # Create traces for the original realB and aligned fakeB
+                    trace_realB = go.Image(sliding_stack_realB[0,0,0,:,:])  # Assuming it's a 3D image stack, selecting the first slice
+                    trace_aligned_fakeB = go.Image(aligned_fakeB_array[0,:, :])  # Assuming it's a 3D image stack, selecting the first slice
+
+                    # Add traces to subplots
+                    fig.add_trace(trace_realB, row=1, col=1)
+                    fig.add_trace(trace_aligned_fakeB, row=1, col=2)
+
+                    # Update layout
+                    fig.update_layout(title='Registration Result: RealB and Aligned FakeB', height=600, width=1000)
+
+                    # Show plot
+                    fig.show()
+
+                    test= calculate_metrics(aligned_fakeB_array,sliding_stack_realB)#[0,:,:,:,:][0,:,:,:,:]
+                    print('Metrics sliding', test )"""
+
                 metrics = calculate_metrics(fakeB, realB)
+                print("Sans recalage", data_name, metrics)
                 if metrics:
                     result_fold[data_name] = metrics
                     # print("before mv process", result_fold[data_name])
@@ -432,6 +838,7 @@ with torch.no_grad():
             result_mv[k].append(result_fold_mv)
             result_ana[k].append(result_fold_ana)
             result_ana_mv[k].append(result_fold_ana_mv)
+            result_reg[k].append(result_fold_reg)
             webpage.save()  # save the HTML
         log_name = os.path.join(web_dir, "metric_log_fold.json")
         with open(log_name, "w") as fp:
@@ -445,6 +852,9 @@ with torch.no_grad():
         log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_log_fold.json")
         with open(log_name_ana_mv, "w") as fp:
             json.dump(result_ana_mv, fp, indent=4, sort_keys=True, default=str)
+        log_name_reg = os.path.join(web_dir, "metric_reg_log_fold.json")
+        with open(log_name_reg, "w") as fp:
+            json.dump(result_reg, fp, indent=4, sort_keys=True, default=str)
         # Write the results to a JSON file
         log_name = os.path.join(web_dir, "metrics_means_by_k.json")
         log_name_mv = os.path.join(web_dir, "metrics_mv_means_by_k.json")
@@ -463,4 +873,7 @@ with torch.no_grad():
         log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_means_by_k.json")
         with open(log_name_ana_mv, "w") as file:
             json.dump(calculate_mean_metrics(result_ana_mv), file, indent=4)
+        log_name_reg = os.path.join(web_dir, "metrics_reg_means_by_k.json")
+        with open(log_name_reg, "w") as file:
+            json.dump(calculate_mean_metrics(result_reg), file, indent=4)
         print("Results have been written to 'metric_log_fold.json'.")
