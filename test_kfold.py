@@ -32,6 +32,7 @@ import SimpleITK as sitk
 import numpy as np
 from typing import List, Dict, Tuple
 import json
+import matplotlib.pyplot as plt
 
 # from torchmetrics import MeanAbsoluteError
 import torch
@@ -242,70 +243,53 @@ def calculate_metrics(fakeB, realB):
 
 def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float]:
     """Calculates the mean of each metric from a list of dictionaries."""
-    # Function to calculate variance and standard deviation
-    import math
-
-    def calc_variance_and_stddev(values, mean):
-        variance = sum((x - mean) ** 2 for x in values) / num_items
-        stddev = math.sqrt(variance)
-        return variance, stddev
 
     results = []
-    # results2 = []
-    # For each sublist in the data:
+
     for sublist in data_list:
-        # total_mae, total_psnr, total_rmse, total_ssim = 0, 0, 0, 0
-        mae_values = []
-        psnr_values = []
-        rmse_values = []
-        ssim_values = []
-        # MAE_bone": [],"MAE_tissu": [],"PSNR_bone": [],"PSNR_tissu": [],"RMSE_bone": [],"RMSE_tissu": [],"SSIM_bone": [],"SSIM_tissu":[]
-        # Sum up the metrics for each file in the sublist in a single pass
+        metric_values = {
+            metric: []
+            for metric in [
+                "MAE",
+                "MAE_bone",
+                "MAE_tissu",
+                "MAE_back",
+                "PSNR",
+                "PSNR_bone",
+                "PSNR_tissu",
+                "RMSE",
+                "RMSE_back",
+                "RMSE_bone",
+                "RMSE_tissu",
+                "SSIM",
+                "SSIM_bone",
+                "SSIM_tissu",
+                "SSIM_back",
+            ]
+        }
+
         for test_image in sublist:
             for metrics in test_image.values():
-                """total_mae += metrics["MAE"]
-                total_psnr += metrics["PSNR"]
-                total_rmse += metrics["RMSE"]
-                total_ssim += metrics["SSIM"]"""
-                mae_values.append(metrics["MAE"])
-                psnr_values.append(metrics["PSNR"])
-                rmse_values.append(metrics["RMSE"])
-                ssim_values.append(metrics["SSIM"])
-            num_items = len(test_image)
-            # Calculate mean, variance, and standard deviation using NumPy
-            mean_MAE = np.mean(mae_values)
-            mean_PSNR = np.mean(psnr_values)
-            mean_RMSE = np.mean(rmse_values)
-            mean_SSIM = np.mean(ssim_values)
+                for metric in metric_values:
+                    metric_values[metric].append(metrics.get(metric, 0))
 
-            """var_MAE = np.var(mae_values)
-            var_PSNR = np.var(psnr_values)
-            var_RMSE = np.var(rmse_values)
-            var_SSIM = np.var(ssim_values)"""
+        mean_values = {
+            metric: np.mean(values) for metric, values in metric_values.items()
+        }
+        stddev_values = {
+            metric: np.std(values) for metric, values in metric_values.items()
+        }
 
-            stddev_MAE = np.std(mae_values)
-            stddev_PSNR = np.std(psnr_values)
-            stddev_RMSE = np.std(rmse_values)
-            stddev_SSIM = np.std(ssim_values)
+        sublist_result = {
+            f"mean_{metric}": mean_values[metric] for metric in mean_values
+        }
+        sublist_result.update(
+            {f"stddev_{metric}": stddev_values[metric] for metric in stddev_values}
+        )
 
-            # Store the mean, variance, and standard deviation for each metric in the results list
-            sublist_result = {
-                "mean_MAE": mean_MAE,
-                "mean_PSNR": mean_PSNR,
-                "mean_RMSE": mean_RMSE,
-                "mean_SSIM": mean_SSIM,
-                "stddev_MAE": stddev_MAE,
-                "stddev_PSNR": stddev_PSNR,
-                "stddev_RMSE": stddev_RMSE,
-                "stddev_SSIM": stddev_SSIM,
-            }
-            """"var_MAE": var_MAE,
-                "var_PSNR": var_PSNR,
-                "var_RMSE": var_RMSE,
-                "var_SSIM": var_SSIM,"""
-            results.append(sublist_result)
+        results.append(sublist_result)
 
-    return results  # , results2
+    return results
 
 
 def rank_data_by_metrics(
@@ -543,7 +527,7 @@ with torch.no_grad():
                         sliding_stack_realB.shape,
                         sliding_stack_realB_bone.shape,
                     )
-                    import matplotlib.pyplot as plt
+                    """
 
                     # Visualize the original realB and aligned fakeB images using matplotlib
                     plt.figure(figsize=(10, 5))
@@ -563,7 +547,7 @@ with torch.no_grad():
                     plt.axis("off")
 
                     plt.tight_layout()
-                    plt.show()
+                    plt.show()"""
 
                     fixed_full = sitk.GetImageFromArray(
                         sliding_stack_realB[0, 0, :, :, :]
@@ -766,44 +750,36 @@ with torch.no_grad():
                         plt.figure(figsize=(15, 10))
 
                         plt.subplot(2, 3, 1)
-                        plt.imshow(
-                            sliding_stack_realB[0, 0, slice, :, :], cmap="gray"
-                        )  # Assuming it's a 3D image stack, selecting the first slice
+                        plt.imshow(sliding_stack_realB[0, 0, slice, :, :], cmap="gray")
                         plt.title("Original RealB")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 2)
                         plt.imshow(
                             composition[slice, :, :], cmap="gray"
-                        )  # sliding_stack_fakeB[0,0,slice,:, :] # Assuming it's a 3D image stack, selecting the first slice
-                        plt.title("Original FakeB")
+                        )  # sliding_stack_fakeB[0,0,slice,:, :]
+                        plt.title("Modification")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 3)
-                        plt.imshow(
-                            aligned_fakeB_array[slice, :, :], cmap="gray"
-                        )  # # Assuming it's a 3D image stack, selecting the first slice
+                        plt.imshow(aligned_fakeB_array[slice, :, :], cmap="gray")
                         plt.title("Aligned FakeB")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 4)
-                        plt.imshow(
-                            sliding_stack_realB[0, 0, slice, :, :], cmap="gray"
-                        )  # Assuming it's a 3D image stack, selecting the first slice
+                        plt.imshow(sliding_stack_realB[0, 0, slice, :, :], cmap="gray")
                         plt.title("Original RealB")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 5)
                         plt.imshow(
                             composition2[slice, :, :], cmap="gray"
-                        )  # sliding_stack_fakeB[0,0,slice,:, :] # Assuming it's a 3D image stack, selecting the first slice
+                        )  # sliding_stack_fakeB[0,0,slice,:, :]
                         plt.title("Original FakeB")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 6)
-                        plt.imshow(
-                            aligned_fakeB_array_full[slice, :, :], cmap="gray"
-                        )  # # Assuming it's a 3D image stack, selecting the first slice
+                        plt.imshow(aligned_fakeB_array_full[slice, :, :], cmap="gray")
                         plt.title("Aligned FakeB")
                         plt.axis("off")
 
