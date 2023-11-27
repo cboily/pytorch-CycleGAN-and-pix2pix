@@ -57,6 +57,63 @@ except ImportError:
     )
 
 
+def euler_3d_registration(fixed_bone, moving_bone, moving_body):
+    fixed = sitk.GetImageFromArray(fixed_bone)  # realB_image
+    moving = sitk.GetImageFromArray(moving_bone)  # fakeB_image
+    moving_full = sitk.GetImageFromArray(moving_body)
+
+    # Create an image registration method
+    R = sitk.ImageRegistrationMethod()
+
+    # Set the metric as correlation
+    R.SetMetricAsCorrelation()
+
+    # Set optimizer parameters
+    R.SetOptimizerAsRegularStepGradientDescent(
+        learningRate=2.0,
+        minStep=1e-4,
+        numberOfIterations=500,
+        gradientMagnitudeTolerance=1e-8,
+    )
+    R.SetOptimizerScalesFromIndexShift()
+
+    # Initialize the transformation
+    tx = sitk.CenteredTransformInitializer(
+        fixed,
+        moving,
+        sitk.Euler3DTransform(),
+        sitk.CenteredTransformInitializerFilter.GEOMETRY,
+    )
+    R.SetInitialTransform(tx)
+
+    R.SetInterpolator(sitk.sitkLinear)
+
+    # Execute the registration
+    outTx = R.Execute(fixed, moving)
+
+    # Output registration information
+    print("-------")
+    print(outTx)
+    print(f"Optimizer stop condition: {R.GetOptimizerStopConditionDescription()}")
+    print(f"Iteration: {R.GetOptimizerIteration()}")
+    print(f"Metric value: {R.GetMetricValue()}")
+
+    # Write the transformation to a file
+    sitk.WriteTransform(outTx, "transform.txt")
+
+    # Resampling
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetReferenceImage(fixed)
+    resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetDefaultPixelValue(-601)
+    resampler.SetTransform(outTx)
+
+    out = resampler.Execute(moving)
+    out_full = resampler.Execute(moving_full)
+
+    return out, out_full
+
+
 def calculate_metrics(fakeB, realB):
     result_data = {}
     body_mask = realB > -600
@@ -66,14 +123,13 @@ def calculate_metrics(fakeB, realB):
     fakeB_back = fakeB[background_mask]
     realB = realB * body_mask
     fakeB = fakeB * body_mask
-    print("Fa", fakeB.shape, fakeB.min(), fakeB.max())  # fakeB,
+    # print("Fa", fakeB.shape, fakeB.min(), fakeB.max())  # fakeB,
     threshold_value = 150
     bone_mask = realB >= threshold_value
     tissu_mask_s = (
         realB < threshold_value
     )  # .cpu() &realB.cpu() >-600).to(device="cuda:0")#
     tissu_mask = tissu_mask_s & body_mask
-    print(body_mask.dtype, body_mask.shape)
     body_fraction = np.mean(body_mask == 1)
     back_fraction = np.mean(background_mask == 1)
     tissu_fraction = np.mean(tissu_mask == 1)
@@ -203,6 +259,7 @@ def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float
         psnr_values = []
         rmse_values = []
         ssim_values = []
+        # MAE_bone": [],"MAE_tissu": [],"PSNR_bone": [],"PSNR_tissu": [],"RMSE_bone": [],"RMSE_tissu": [],"SSIM_bone": [],"SSIM_tissu":[]
         # Sum up the metrics for each file in the sublist in a single pass
         for test_image in sublist:
             for metrics in test_image.values():
@@ -426,9 +483,29 @@ with torch.no_grad():
                 bone_mask = realB >= threshold_value
                 fakeB_bone = fakeB * bone_mask
                 realB_bone = realB * bone_mask
-                if prev_patient_name is None or patient_id != prev_patient_name:
+                if prev_patient_name is None:
+                    prev_patient_name = patient_id
+                if patient_id != prev_patient_name:
                     # Reset the stacked_fakeBs list when data_name changes
-                    print("reset")
+                    print("Calculate patient and reset")
+                    sliding_stack_fakeB = np.stack(stacked_fakeBs, axis=2)
+                    sliding_stack_realB = np.stack(stacked_realBs, axis=2)
+                    sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
+                    sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
+                    print(
+                        "Sliding stack, fakeB",
+                        sliding_stack_fakeB.shape,
+                        sliding_stack_fakeB.dtype,
+                        sliding_stack_fakeB_bone.shape,
+                        "realB",
+                        sliding_stack_realB.shape,
+                        sliding_stack_realB_bone.shape,
+                    )
+                    out, out_full = euler_3d_registration(
+                        sliding_stack_realB_bone[0, 0, :, :, :],
+                        sliding_stack_fakeB_bone[0, 0, :, :, :],
+                        sliding_stack_fakeB[0, 0, :, :, :],
+                    )
                     stacked_fakeBs = []
                     stacked_realBs = []
                     stacked_fakeBs_bone = []
@@ -488,15 +565,6 @@ with torch.no_grad():
                     plt.tight_layout()
                     plt.show()
 
-                    moving = sitk.GetImageFromArray(
-                        sliding_stack_fakeB_bone[0, 0, :, :, :]
-                    )  # fakeB_image
-                    fixed = sitk.GetImageFromArray(
-                        sliding_stack_realB_bone[0, 0, :, :, :]
-                    )  # realB_image
-                    moving_full = sitk.GetImageFromArray(
-                        sliding_stack_fakeB[0, 0, :, :, :]
-                    )
                     fixed_full = sitk.GetImageFromArray(
                         sliding_stack_realB[0, 0, :, :, :]
                     )
@@ -608,67 +676,6 @@ with torch.no_grad():
                     simg2 = sitk.Cast(sitk.RescaleIntensity(out), sitk.sitkUInt8)
                     cimg = sitk.Compose(simg1, simg2, simg1 // 2.0 + simg2 // 2.0)"""
 
-                    ###Euler 3D
-                    R = sitk.ImageRegistrationMethod()
-
-                    R.SetMetricAsCorrelation()
-
-                    R.SetOptimizerAsRegularStepGradientDescent(
-                        learningRate=2.0,
-                        minStep=1e-4,
-                        numberOfIterations=500,
-                        gradientMagnitudeTolerance=1e-8,
-                    )
-                    R.SetOptimizerScalesFromIndexShift()
-
-                    tx = sitk.CenteredTransformInitializer(
-                        fixed,
-                        moving,
-                        sitk.Euler3DTransform(),
-                        sitk.CenteredTransformInitializerFilter.GEOMETRY,
-                    )
-                    R.SetInitialTransform(tx)
-
-                    R.SetInterpolator(sitk.sitkLinear)
-
-                    # R.AddCommand(sitk.sitkIterationEvent, lambda: command_iteration(R))
-
-                    outTx = R.Execute(fixed, moving)
-
-                    print("-------")
-                    print(outTx)
-                    print(
-                        f"Optimizer stop condition: {R.GetOptimizerStopConditionDescription()}"
-                    )
-                    print(f" Iteration: {R.GetOptimizerIteration()}")
-                    print(f" Metric value: {R.GetMetricValue()}")
-
-                    sitk.WriteTransform(outTx, "transform.txt")
-
-                    resampler = sitk.ResampleImageFilter()
-                    resampler.SetReferenceImage(fixed)
-                    resampler.SetInterpolator(sitk.sitkLinear)
-                    resampler.SetDefaultPixelValue(100)
-                    resampler.SetTransform(outTx)
-
-                    out = resampler.Execute(moving)
-                    out_full = resampler.Execute(moving_full)
-                    """resampler_full = sitk.ResampleImageFilter()
-                    resampler_full.SetReferenceImage(fixed_full)
-                    resampler_full.SetInterpolator(sitk.sitkLinear)
-                    resampler_full.SetDefaultPixelValue(100)
-                    resampler_full.SetTransform(outTx)
-                    out_full_body= resampler_full.Execute(moving_full)"""
-                    # cimg = sitk.Compose(out_full_body, out_full, out_full_body // 2.0 + out_full // 2.0)
-                    simg1 = sitk.Cast(sitk.RescaleIntensity(fixed), sitk.sitkUInt8)
-                    simg2 = sitk.Cast(sitk.RescaleIntensity(out), sitk.sitkUInt8)
-                    simg3 = sitk.Cast(sitk.RescaleIntensity(fixed_full), sitk.sitkUInt8)
-                    simg4 = sitk.Cast(sitk.RescaleIntensity(out_full), sitk.sitkUInt8)
-                    cimg = sitk.Compose(simg1, simg2, simg1 // 2.0 + simg2 // 2.0)
-                    # cimg = sitk.Compose(fixed, out, fixed // 2.0 + out // 2.0)
-                    # cimg2 = sitk.Compose(fixed_full, out_full, fixed_full // 2.0 + out_full // 2.0)
-                    cimg2 = sitk.Compose(simg3, simg4, simg3 // 2.0 + simg4 // 2.0)
-
                     # Define the registration method (rigid registration)
                     """registration_method = sitk.ImageRegistrationMethod()
 
@@ -692,6 +699,24 @@ with torch.no_grad():
                     registered_fakeB = sitk.Resample(fakeB_image, realB_image, final_transform, sitk.sitkLinear, 0.0)
 
                     # Get the aligned fakeB array"""
+                    out, out_full = euler_3d_registration(
+                        sliding_stack_realB_bone[0, 0, :, :, :],
+                        sliding_stack_fakeB_bone[0, 0, :, :, :],
+                        sliding_stack_fakeB[0, 0, :, :, :],
+                    )
+                    fixed = sitk.GetImageFromArray(
+                        sliding_stack_realB_bone[0, 0, :, :, :]
+                    )  # realB_image
+                    # cimg = sitk.Compose(out_full_body, out_full, out_full_body // 2.0 + out_full // 2.0)
+                    simg1 = sitk.Cast(sitk.RescaleIntensity(fixed), sitk.sitkUInt8)
+                    simg2 = sitk.Cast(sitk.RescaleIntensity(out), sitk.sitkUInt8)
+                    simg3 = sitk.Cast(sitk.RescaleIntensity(fixed_full), sitk.sitkUInt8)
+                    simg4 = sitk.Cast(sitk.RescaleIntensity(out_full), sitk.sitkUInt8)
+                    cimg = sitk.Compose(simg1, simg2, simg1 // 2.0 + simg2 // 2.0)
+                    # cimg = sitk.Compose(fixed, out, fixed // 2.0 + out // 2.0)
+                    # cimg2 = sitk.Compose(fixed_full, out_full, fixed_full // 2.0 + out_full // 2.0)
+                    cimg2 = sitk.Compose(simg3, simg4, simg3 // 2.0 + simg4 // 2.0)
+
                     aligned_fakeB_array = sitk.GetArrayFromImage(
                         out
                     )  # registered_fakeBtransformed_segmentation
@@ -699,6 +724,7 @@ with torch.no_grad():
                     aligned_fakeB_array_full = sitk.GetArrayFromImage(out_full)
                     composition = sitk.GetArrayFromImage(cimg)
                     composition2 = sitk.GetArrayFromImage(cimg2)
+
                     print(
                         "aligned fakeB",
                         aligned_fakeB_array_full.dtype,
@@ -721,14 +747,22 @@ with torch.no_grad():
                         aligned_realB_array_full_t.shape,
                     )
                     for slice in range(0, aligned_fakeB_array.shape[0]):
-                        result_fold_reg[stacked_name_file[slice]] = calculate_metrics(
-                            aligned_fakeB_array_full_t[:, :, slice, :, :],  #
-                            aligned_realB_array_full_t[:, :, slice, :, :],  #
+                        zero_fraction = np.mean(
+                            aligned_fakeB_array_full[slice, :, :] == -601
                         )
-                        print(
-                            stacked_name_file[slice],
-                            result_fold_reg[stacked_name_file[slice]],
-                        )
+                        print("Error fraction:", zero_fraction)
+                        print(slice)
+                        if zero_fraction <= 0.05:
+                            metrics_reg = calculate_metrics(
+                                aligned_fakeB_array_full_t[:, :, slice, :, :],  #
+                                aligned_realB_array_full_t[:, :, slice, :, :],  #
+                            )
+                            if result_reg:
+                                result_fold_reg[stacked_name_file[slice]] = metrics_reg
+                            print(
+                                stacked_name_file[slice],
+                                result_fold_reg[stacked_name_file[slice]],
+                            )
                         plt.figure(figsize=(15, 10))
 
                         plt.subplot(2, 3, 1)
