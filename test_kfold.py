@@ -471,25 +471,47 @@ with torch.no_grad():
                     prev_patient_name = patient_id
                 if patient_id != prev_patient_name:
                     # Reset the stacked_fakeBs list when data_name changes
-                    print("Calculate patient and reset")
-                    sliding_stack_fakeB = np.stack(stacked_fakeBs, axis=2)
-                    sliding_stack_realB = np.stack(stacked_realBs, axis=2)
-                    sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
-                    sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
-                    print(
-                        "Sliding stack, fakeB",
-                        sliding_stack_fakeB.shape,
-                        sliding_stack_fakeB.dtype,
-                        sliding_stack_fakeB_bone.shape,
-                        "realB",
-                        sliding_stack_realB.shape,
-                        sliding_stack_realB_bone.shape,
-                    )
-                    out, out_full = euler_3d_registration(
-                        sliding_stack_realB_bone[0, 0, :, :, :],
-                        sliding_stack_fakeB_bone[0, 0, :, :, :],
-                        sliding_stack_fakeB[0, 0, :, :, :],
-                    )
+                    if len(stacked_fakeBs) >= 4:
+                        print("Calculate patient and reset")
+                        sliding_stack_fakeB = np.stack(stacked_fakeBs, axis=2)
+                        sliding_stack_realB = torch.stack(stacked_realBs, axis=2)
+                        sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
+                        sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
+                        print(
+                            "Sliding stack, fakeB",
+                            sliding_stack_fakeB.shape,
+                            sliding_stack_fakeB.dtype,
+                            sliding_stack_fakeB_bone.shape,
+                            "realB",
+                            sliding_stack_realB.shape,
+                            sliding_stack_realB_bone.shape,
+                        )
+                        out, out_full = euler_3d_registration(
+                            sliding_stack_realB_bone[0, 0, :, :, :],
+                            sliding_stack_fakeB_bone[0, 0, :, :, :],
+                            sliding_stack_fakeB[0, 0, :, :, :],
+                        )
+                        aligned_fakeB_array_full = sitk.GetArrayFromImage(out_full)
+                        aligned_fakeB_array_full_t = fakeB.new_tensor(
+                            [[np.array(aligned_fakeB_array_full)]]
+                        )
+                        for slice in range(0, aligned_fakeB_array_full.shape[0]):
+                            zero_fraction = np.mean(
+                                aligned_fakeB_array_full[slice, :, :] == -601
+                            )
+                            print("Error fraction:", zero_fraction)
+                            print(slice)
+                            if zero_fraction <= 0.05:
+                                metrics_reg = calculate_metrics(
+                                    aligned_fakeB_array_full_t[:, :, slice, :, :],  #
+                                    sliding_stack_realB_t[
+                                        :, :, slice, :, :
+                                    ],  # aligned_realB_array_full_t[:, :, slice, :, :],  #
+                                )
+                                if result_reg:
+                                    result_fold_reg[
+                                        stacked_name_file[slice]
+                                    ] = metrics_reg
                     stacked_fakeBs = []
                     stacked_realBs = []
                     stacked_fakeBs_bone = []
@@ -516,6 +538,7 @@ with torch.no_grad():
                 if len(stacked_fakeBs) == 7:
                     sliding_stack_fakeB = np.stack(stacked_fakeBs, axis=2)
                     sliding_stack_realB = np.stack(stacked_realBs, axis=2)
+                    sliding_stack_realB_t = torch.stack(stacked_realBs, axis=2)
                     sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
                     sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
                     print(
@@ -525,6 +548,7 @@ with torch.no_grad():
                         sliding_stack_fakeB_bone.shape,
                         "realB",
                         sliding_stack_realB.shape,
+                        sliding_stack_realB.dtype,
                         sliding_stack_realB_bone.shape,
                     )
                     """
@@ -552,6 +576,7 @@ with torch.no_grad():
                     fixed_full = sitk.GetImageFromArray(
                         sliding_stack_realB[0, 0, :, :, :]
                     )
+
                     # fixed_image.SetOrigin([0,0,0])
                     # fixed_image.SetDimension
 
@@ -688,7 +713,7 @@ with torch.no_grad():
                         sliding_stack_fakeB_bone[0, 0, :, :, :],
                         sliding_stack_fakeB[0, 0, :, :, :],
                     )
-                    fixed = sitk.GetImageFromArray(
+                    """fixed = sitk.GetImageFromArray(
                         sliding_stack_realB_bone[0, 0, :, :, :]
                     )  # realB_image
                     # cimg = sitk.Compose(out_full_body, out_full, out_full_body // 2.0 + out_full // 2.0)
@@ -705,32 +730,34 @@ with torch.no_grad():
                         out
                     )  # registered_fakeBtransformed_segmentation
                     aligned_realB_array_full = sitk.GetArrayFromImage(fixed_full)
-                    aligned_fakeB_array_full = sitk.GetArrayFromImage(out_full)
+                    
                     composition = sitk.GetArrayFromImage(cimg)
-                    composition2 = sitk.GetArrayFromImage(cimg2)
-
-                    print(
+                    composition2 = sitk.GetArrayFromImage(cimg2)"""
+                    aligned_fakeB_array_full = sitk.GetArrayFromImage(out_full)
+                    """print(
                         "aligned fakeB",
                         aligned_fakeB_array_full.dtype,
                         aligned_fakeB_array_full.min(),
                         aligned_fakeB_array_full.max(),
                         aligned_fakeB_array_full.shape,
-                    )  #
+                    )"""
                     aligned_fakeB_array_full_t = fakeB.new_tensor(
                         [[np.array(aligned_fakeB_array_full)]]
                     )  # ,dtype= float,device='cuda:0')
                     # aligned_fakeB_array_full_t = aligned_fakeB_array_full_t.unsqueeze(0).unsqueeze(0)
-                    aligned_realB_array_full_t = realB.new_tensor(
+                    """aligned_realB_array_full_t = realB.new_tensor(
                         [[np.array(aligned_realB_array_full)]]
-                    )  # ,dtype= float,device='cuda:0')
+                    ) """  # ,dtype= float,device='cuda:0')
                     # aligned_realB_array_full_t = aligned_realB_array_full_t.unsqueeze(0).unsqueeze(0)
                     print(
                         "aligned torch",
                         aligned_fakeB_array_full_t.dtype,
                         aligned_fakeB_array_full_t.shape,
-                        aligned_realB_array_full_t.shape,
+                        "real B no process",
+                        sliding_stack_realB_t.dtype,
+                        sliding_stack_realB_t.shape,  # aligned_realB_array_full_t.shape,
                     )
-                    for slice in range(0, aligned_fakeB_array.shape[0]):
+                    for slice in range(0, aligned_fakeB_array_full.shape[0]):
                         zero_fraction = np.mean(
                             aligned_fakeB_array_full[slice, :, :] == -601
                         )
@@ -739,15 +766,22 @@ with torch.no_grad():
                         if zero_fraction <= 0.05:
                             metrics_reg = calculate_metrics(
                                 aligned_fakeB_array_full_t[:, :, slice, :, :],  #
-                                aligned_realB_array_full_t[:, :, slice, :, :],  #
+                                sliding_stack_realB_t[
+                                    :, :, slice, :, :
+                                ],  # aligned_realB_array_full_t[:, :, slice, :, :],  #
                             )
                             if result_reg:
+                                """print(result_fold_reg.keys())
+                                if result_fold_reg[stacked_name_file[slice]]:#stacked_name_file[slice] in result_fold_reg and not
+                                    print('already included', result_fold_reg[stacked_name_file[slice]])
+                                    continue
+                                else:"""
                                 result_fold_reg[stacked_name_file[slice]] = metrics_reg
-                            print(
+                            """print(
                                 stacked_name_file[slice],
                                 result_fold_reg[stacked_name_file[slice]],
-                            )
-                        plt.figure(figsize=(15, 10))
+                            )"""
+                        """plt.figure(figsize=(15, 10))
 
                         plt.subplot(2, 3, 1)
                         plt.imshow(sliding_stack_realB[0, 0, slice, :, :], cmap="gray")
@@ -758,7 +792,7 @@ with torch.no_grad():
                         plt.imshow(
                             composition[slice, :, :], cmap="gray"
                         )  # sliding_stack_fakeB[0,0,slice,:, :]
-                        plt.title("Modification")
+                        plt.title("Difference")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 3)
@@ -775,7 +809,7 @@ with torch.no_grad():
                         plt.imshow(
                             composition2[slice, :, :], cmap="gray"
                         )  # sliding_stack_fakeB[0,0,slice,:, :]
-                        plt.title("Original FakeB")
+                        plt.title("Difference")
                         plt.axis("off")
 
                         plt.subplot(2, 3, 6)
@@ -784,7 +818,7 @@ with torch.no_grad():
                         plt.axis("off")
 
                         plt.tight_layout()
-                        plt.show()
+                        plt.show()"""
                     stacked_fakeBs = stacked_fakeBs[-2:]
                     stacked_realBs = stacked_realBs[-2:]
                     stacked_fakeBs_bone = stacked_fakeBs_bone[-2:]
@@ -818,7 +852,7 @@ with torch.no_grad():
                     print('Metrics sliding', test )"""
 
                 metrics = calculate_metrics(fakeB, realB)
-                print("Sans recalage", data_name, metrics)
+                # print("Sans recalage", data_name, metrics)
                 if metrics:
                     result_fold[data_name] = metrics
                     # print("before mv process", result_fold[data_name])
