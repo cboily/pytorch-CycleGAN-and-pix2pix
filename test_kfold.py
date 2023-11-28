@@ -408,7 +408,7 @@ with torch.no_grad():
             web_dir = os.path.join(
                 opt.results_dir,
                 opt.name,
-                "{}_fold_{}_{}".format(opt.phase, opt.fold, opt.epoch),
+                "{}_fold_{}_{}_{}".format(opt.phase, opt.fold, opt.epoch, opt.localisation),
             )  # define the website directory
             if opt.load_iter > 0:  # load_iter is 0 by default
                 web_dir = "{:s}_iter{:d}".format(web_dir, opt.load_iter)
