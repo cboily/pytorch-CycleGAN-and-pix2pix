@@ -271,7 +271,9 @@ def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float
         for test_image in sublist:
             for metrics in test_image.values():
                 for metric in metric_values:
-                    metric_values[metric].append(metrics.get(metric, 0))
+                    value = metrics.get(metric, 0)
+                    if not np.isinf(value):
+                        metric_values[metric].append(value)
 
         mean_values = {
             metric: np.mean(values) for metric, values in metric_values.items()
@@ -887,13 +889,13 @@ with torch.no_grad():
         log_name = os.path.join(web_dir, "metric_log_fold.json")
         with open(log_name, "w") as fp:
             json.dump(result, fp, indent=4, sort_keys=True, default=str)
-        log_name_mv = os.path.join(web_dir, "metric_mv_log_fold.json")
+        log_name_mv = os.path.join(web_dir, "metric_log_mv_fold.json")
         with open(log_name_mv, "w") as fp:
             json.dump(result_mv, fp, indent=4, sort_keys=True, default=str)
-        log_name_ana = os.path.join(web_dir, "metric_ana_log_fold.json")
+        log_name_ana = os.path.join(web_dir, "metric_log_ana_fold.json")
         with open(log_name_ana, "w") as fp:
             json.dump(result_ana, fp, indent=4, sort_keys=True, default=str)
-        log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_log_fold.json")
+        log_name_ana_mv = os.path.join(web_dir, "metric_log_ana_mv_fold.json")
         with open(log_name_ana_mv, "w") as fp:
             json.dump(result_ana_mv, fp, indent=4, sort_keys=True, default=str)
         log_name_reg = os.path.join(web_dir, "metric_reg_log_fold.json")
@@ -901,7 +903,7 @@ with torch.no_grad():
             json.dump(result_reg, fp, indent=4, sort_keys=True, default=str)
         # Write the results to a JSON file
         log_name = os.path.join(web_dir, "metrics_means_by_k.json")
-        log_name_mv = os.path.join(web_dir, "metrics_mv_means_by_k.json")
+        log_name_mv = os.path.join(web_dir, "metrics_means_mv_by_k.json")
 
         with open(log_name, "w") as file:
             json.dump(
@@ -909,15 +911,15 @@ with torch.no_grad():
             )
         with open(log_name_mv, "w") as file:
             json.dump(calculate_mean_metrics(result_mv), file, indent=4)
-        log_name_ana = os.path.join(web_dir, "metric_ana_means_by_k.json")
+        log_name_ana = os.path.join(web_dir, "metric_means_ana_by_k.json")
         with open(log_name_ana, "w") as file:
             json.dump(
                 rank_data_by_metrics(calculate_mean_metrics(result_ana)), file, indent=4
             )
-        log_name_ana_mv = os.path.join(web_dir, "metric_ana_mv_means_by_k.json")
+        log_name_ana_mv = os.path.join(web_dir, "metric_means_ana_mv_by_k.json")
         with open(log_name_ana_mv, "w") as file:
             json.dump(calculate_mean_metrics(result_ana_mv), file, indent=4)
-        log_name_reg = os.path.join(web_dir, "metrics_reg_means_by_k.json")
+        log_name_reg = os.path.join(web_dir, "metrics_means_reg_by_k.json")
         with open(log_name_reg, "w") as file:
             json.dump(calculate_mean_metrics(result_reg), file, indent=4)
         print("Results have been written to 'metric_log_fold.json'.")
