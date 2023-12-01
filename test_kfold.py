@@ -93,14 +93,14 @@ def euler_3d_registration(fixed_bone, moving_bone, moving_body):
     outTx = R.Execute(fixed, moving)
 
     # Output registration information
-    print("-------")
+    """print("-------")
     print(outTx)
     print(f"Optimizer stop condition: {R.GetOptimizerStopConditionDescription()}")
     print(f"Iteration: {R.GetOptimizerIteration()}")
-    print(f"Metric value: {R.GetMetricValue()}")
+    print(f"Metric value: {R.GetMetricValue()}")"""
 
     # Write the transformation to a file
-    sitk.WriteTransform(outTx, "transform.txt")
+    # sitk.WriteTransform(outTx, "transform.txt")
 
     # Resampling
     resampler = sitk.ResampleImageFilter()
@@ -410,7 +410,9 @@ with torch.no_grad():
             web_dir = os.path.join(
                 opt.results_dir,
                 opt.name,
-                "{}_fold_{}_{}_{}".format(opt.phase, opt.fold, opt.epoch, opt.localisation),
+                "{}_fold_{}_{}_{}".format(
+                    opt.phase, opt.fold, opt.epoch, opt.localisation
+                ),
             )  # define the website directory
             if opt.load_iter > 0:  # load_iter is 0 by default
                 web_dir = "{:s}_iter{:d}".format(web_dir, opt.load_iter)
@@ -479,7 +481,7 @@ with torch.no_grad():
                         sliding_stack_realB = torch.stack(stacked_realBs, axis=2)
                         sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
                         sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
-                        print(
+                        """print(
                             "Sliding stack, fakeB",
                             sliding_stack_fakeB.shape,
                             sliding_stack_fakeB.dtype,
@@ -487,7 +489,7 @@ with torch.no_grad():
                             "realB",
                             sliding_stack_realB.shape,
                             sliding_stack_realB_bone.shape,
-                        )
+                        )"""
                         out, out_full = euler_3d_registration(
                             sliding_stack_realB_bone[0, 0, :, :, :],
                             sliding_stack_fakeB_bone[0, 0, :, :, :],
@@ -501,8 +503,6 @@ with torch.no_grad():
                             zero_fraction = np.mean(
                                 aligned_fakeB_array_full[slice, :, :] == -601
                             )
-                            print("Error fraction:", zero_fraction)
-                            print(slice)
                             if zero_fraction <= 0.05:
                                 metrics_reg = calculate_metrics(
                                     aligned_fakeB_array_full_t[:, :, slice, :, :],  #
@@ -514,6 +514,12 @@ with torch.no_grad():
                                     result_fold_reg[
                                         stacked_name_file[slice]
                                     ] = metrics_reg
+                            else:
+                                print(
+                                    "Error fraction:",
+                                    stacked_name_file[slice],
+                                    zero_fraction,
+                                )
                     stacked_fakeBs = []
                     stacked_realBs = []
                     stacked_fakeBs_bone = []
@@ -543,7 +549,7 @@ with torch.no_grad():
                     sliding_stack_realB_t = torch.stack(stacked_realBs, axis=2)
                     sliding_stack_fakeB_bone = np.stack(stacked_fakeBs_bone, axis=2)
                     sliding_stack_realB_bone = np.stack(stacked_realBs_bone, axis=2)
-                    print(
+                    """print(
                         "Sliding stack, fakeB",
                         sliding_stack_fakeB.shape,
                         sliding_stack_fakeB.dtype,
@@ -552,7 +558,7 @@ with torch.no_grad():
                         sliding_stack_realB.shape,
                         sliding_stack_realB.dtype,
                         sliding_stack_realB_bone.shape,
-                    )
+                    )"""
                     """
 
                     # Visualize the original realB and aligned fakeB images using matplotlib
@@ -751,20 +757,18 @@ with torch.no_grad():
                         [[np.array(aligned_realB_array_full)]]
                     ) """  # ,dtype= float,device='cuda:0')
                     # aligned_realB_array_full_t = aligned_realB_array_full_t.unsqueeze(0).unsqueeze(0)
-                    print(
+                    """print(
                         "aligned torch",
                         aligned_fakeB_array_full_t.dtype,
                         aligned_fakeB_array_full_t.shape,
                         "real B no process",
                         sliding_stack_realB_t.dtype,
                         sliding_stack_realB_t.shape,  # aligned_realB_array_full_t.shape,
-                    )
+                    )"""
                     for slice in range(0, aligned_fakeB_array_full.shape[0]):
                         zero_fraction = np.mean(
                             aligned_fakeB_array_full[slice, :, :] == -601
                         )
-                        print("Error fraction:", zero_fraction)
-                        print(slice)
                         if zero_fraction <= 0.05:
                             metrics_reg = calculate_metrics(
                                 aligned_fakeB_array_full_t[:, :, slice, :, :],  #
@@ -783,6 +787,12 @@ with torch.no_grad():
                                 stacked_name_file[slice],
                                 result_fold_reg[stacked_name_file[slice]],
                             )"""
+                        else:
+                            print(
+                                "Error fraction:",
+                                stacked_name_file[slice],
+                                zero_fraction,
+                            )
                         """plt.figure(figsize=(15, 10))
 
                         plt.subplot(2, 3, 1)
