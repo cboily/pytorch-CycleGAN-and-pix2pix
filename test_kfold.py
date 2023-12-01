@@ -533,7 +533,7 @@ with torch.no_grad():
                 stacked_fakeBs_bone.append(fakeB_bone)
                 stacked_realBs_bone.append(realB_bone)
                 stacked_name_file.append(data_name)
-                print(prev_patient_name, len(stacked_fakeBs), fakeB.shape, fakeB.dtype)
+                #print(prev_patient_name, len(stacked_fakeBs), fakeB.shape, fakeB.dtype)
                 # Ensure the stack doesn't exceed a length of 7
                 if len(stacked_fakeBs) > 7:
                     stacked_fakeBs.pop(0)
