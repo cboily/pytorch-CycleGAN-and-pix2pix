@@ -363,7 +363,7 @@ with torch.no_grad():
             -1
         )  # no visdom display; the test code saves the results to a HTML file.
 
-        opt.num_folds = 1
+        opt.num_folds = 5
         opt.seed = 53493403
         opt.isTrain = False
         result = []
@@ -371,7 +371,7 @@ with torch.no_grad():
         result_ana = []
         result_ana_mv = []
         result_reg = []
-        # name = opt.name
+        name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             result_mv.append([])
@@ -381,7 +381,7 @@ with torch.no_grad():
             opt.fold = k
             print(f"FOLD {opt.fold}")
             print("--------------------------------")
-            # opt.name = name + str(opt.fold)
+            opt.name = name + str(opt.fold) + "_256_231114"
             print("Name:", opt.name)
             dataset = create_dataset(
                 opt
@@ -581,10 +581,6 @@ with torch.no_grad():
                     plt.tight_layout()
                     plt.show()"""
 
-                    fixed_full = sitk.GetImageFromArray(
-                        sliding_stack_realB[0, 0, :, :, :]
-                    )
-
                     # fixed_image.SetOrigin([0,0,0])
                     # fixed_image.SetDimension
 
@@ -721,7 +717,10 @@ with torch.no_grad():
                         sliding_stack_fakeB_bone[0, 0, :, :, :],
                         sliding_stack_fakeB[0, 0, :, :, :],
                     )
-                    """fixed = sitk.GetImageFromArray(
+                    """fixed_full = sitk.GetImageFromArray(
+                        sliding_stack_realB[0, 0, :, :, :]
+                    )
+                    fixed = sitk.GetImageFromArray(
                         sliding_stack_realB_bone[0, 0, :, :, :]
                     )  # realB_image
                     # cimg = sitk.Compose(out_full_body, out_full, out_full_body // 2.0 + out_full // 2.0)
