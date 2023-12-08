@@ -378,10 +378,10 @@ with torch.no_grad():
             result_ana.append([])
             result_ana_mv.append([])
             result_reg.append([])
-            opt.fold = k
-            print(f"FOLD {opt.fold}")
+            opt.fold = 0#k
+            print(f"FOLD {k}")#opt.fold
             print("--------------------------------")
-            opt.name = name + str(opt.fold) + "_256_231114"
+            opt.name = name + str(k) + "_256_231114"#opt.fold
             print("Name:", opt.name)
             dataset = create_dataset(
                 opt
