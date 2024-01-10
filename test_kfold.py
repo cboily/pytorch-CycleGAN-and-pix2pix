@@ -135,6 +135,7 @@ def calculate_metrics(fakeB, realB):
     back_fraction = np.mean(background_mask == 1)
     tissu_fraction = np.mean(tissu_mask == 1)
     bone_fraction = np.mean(bone_mask == 1)
+
     """print(
         "background",
         back_fraction,
@@ -152,6 +153,8 @@ def calculate_metrics(fakeB, realB):
         fakeB_bone = fakeB[bone_mask]  # *
         realB_tissu = realB[tissu_mask]  # *
         realB_bone = realB[bone_mask]  # *
+        realB_body = realB[body_mask]
+        fakeB_body = fakeB[body_mask]
         """print(
             "real_tissu",
             realB_tissu.min(),
@@ -217,9 +220,11 @@ def calculate_metrics(fakeB, realB):
         result_data["MAE_back"] = mean_absolute_error(fakeB_back, realB_back).item()
         result_data["MAE_bone"] = mean_absolute_error(fakeB_bone, realB_bone).item()
         result_data["MAE_tissu"] = mean_absolute_error(fakeB_tissu, realB_tissu).item()
+        result_data["MAE_body"] = mean_absolute_error(fakeB_body, realB_body).item()
         result_data["RMSE_bone"] = testrmse(fakeB_bone, realB_bone).item()
         result_data["RMSE_tissu"] = testrmse(fakeB_tissu, realB_tissu).item()
         result_data["RMSE_back"] = testrmse(fakeB_back, realB_back).item()
+        result_data["RMSE_body"] = testrmse(fakeB_body, realB_body).item()
         result_data["SSIM_bone"] = torch.mean(
             ssim[bone_mask]
         ).item()  # testssim(fakeB_bone, realB_bone).item()
@@ -227,12 +232,14 @@ def calculate_metrics(fakeB, realB):
             ssim[tissu_mask]
         ).item()  # testssim(fakeB_tissu, realB_tissu).item()
         result_data["SSIM_back"] = torch.mean(ssim[background_mask]).item()
+        result_data["SSIM_body"] = torch.mean(ssim[body_mask]).item()
         # result_data["PSNR_bone"] = testpsnr(fakeB_bone, realB_bone).item()
         # result_data["PSNR_tissu"] = testpsnr(fakeB_tissu, realB_tissu).item()
         result_data["PSNR_bone"] = torch.mean(
             psnr[torch.flatten(bone_mask)]
         ).item()  # testpsnr(fakeB_bone, realB_bone).item()
         result_data["PSNR_tissu"] = torch.mean(psnr[torch.flatten(tissu_mask)]).item()
+        result_data["PSNR_body"] = torch.mean(psnr[torch.flatten(body_mask)]).item()
         result_data["background"] = back_fraction
         result_data["tissu"] = tissu_fraction
         result_data["bone"] = bone_fraction
@@ -253,18 +260,22 @@ def calculate_mean_metrics(data_list: List[Dict[str, float]]) -> Dict[str, float
                 "MAE",
                 "MAE_bone",
                 "MAE_tissu",
+                "MAE_body",
                 "MAE_back",
                 "PSNR",
                 "PSNR_bone",
                 "PSNR_tissu",
+                "PSNR_body",
                 "RMSE",
                 "RMSE_back",
                 "RMSE_bone",
                 "RMSE_tissu",
+                "RMSE_body",
                 "SSIM",
                 "SSIM_bone",
                 "SSIM_tissu",
                 "SSIM_back",
+                "SSIM_body",
             ]
         }
 
@@ -363,7 +374,7 @@ with torch.no_grad():
             -1
         )  # no visdom display; the test code saves the results to a HTML file.
 
-        opt.num_folds = 5
+        opt.num_folds = 1
         opt.seed = 53493403
         opt.isTrain = False
         result = []
@@ -371,17 +382,17 @@ with torch.no_grad():
         result_ana = []
         result_ana_mv = []
         result_reg = []
-        name = opt.name
+        # name = opt.name
         for k in range(0, opt.num_folds):
             result.append([])
             result_mv.append([])
             result_ana.append([])
             result_ana_mv.append([])
             result_reg.append([])
-            opt.fold = 0#k
-            print(f"FOLD {k}")#opt.fold
+            opt.fold = k  # 0#
+            print(f"FOLD {k}")  # opt.fold
             print("--------------------------------")
-            opt.name = name + str(k) + "_256_231114"#opt.fold
+            # opt.name = name + str(k) + "_256_231114"#opt.fold
             print("Name:", opt.name)
             dataset = create_dataset(
                 opt
