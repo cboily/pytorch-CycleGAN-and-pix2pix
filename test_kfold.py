@@ -243,8 +243,8 @@ def calculate_metrics(fakeB, realB):
         result_data["background"] = back_fraction
         result_data["tissu"] = tissu_fraction
         result_data["bone"] = bone_fraction
-        # print('tissu',result_data["SSIM_tissu"].shape, result_data["SSIM_tissu"],'background', result_data["SSIM_back"].shape, result_data["SSIM_back"])
-        # print(result_data)
+        #print('tissu',result_data["SSIM_tissu"].shape, result_data["SSIM_tissu"],'body', result_data["SSIM_body"].shape, result_data["SSIM_body"])
+        #print(result_data)
     return result_data
 
 
@@ -521,7 +521,7 @@ with torch.no_grad():
                                         :, :, slice, :, :
                                     ],  # aligned_realB_array_full_t[:, :, slice, :, :],  #
                                 )
-                                if result_reg:
+                                if metrics_reg:
                                     result_fold_reg[
                                         stacked_name_file[slice]
                                     ] = metrics_reg
@@ -786,7 +786,7 @@ with torch.no_grad():
                                     :, :, slice, :, :
                                 ],  # aligned_realB_array_full_t[:, :, slice, :, :],  #
                             )
-                            if result_reg:
+                            if metrics_reg:
                                 """print(result_fold_reg.keys())
                                 if result_fold_reg[stacked_name_file[slice]]:#stacked_name_file[slice] in result_fold_reg and not
                                     print('already included', result_fold_reg[stacked_name_file[slice]])
