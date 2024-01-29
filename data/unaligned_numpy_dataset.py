@@ -93,8 +93,6 @@ class UnalignedNumpyDataset(BaseDataset):
                 list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
                 path_B_loc = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
                 self.B_paths.extend(path_B_loc)
-            with open ('ll2.json', 'w') as file:
-                json.dump(self.A_paths, file)
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
             opt.max_dataset_size,
@@ -103,8 +101,6 @@ class UnalignedNumpyDataset(BaseDataset):
             self.B_paths,
             opt.max_dataset_size,
         )
-        with open ('llindex2.json', 'w') as file:
-            json.dump(self.A_index, file)
         btoA = self.opt.direction == "BtoA"
         input_nc = (
             self.opt.output_nc if btoA else self.opt.input_nc
