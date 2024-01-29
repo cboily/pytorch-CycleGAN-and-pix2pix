@@ -70,24 +70,31 @@ class UnalignedNumpyDataset(BaseDataset):
         """
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
-        self.dir_A = os.path.join(
-            opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
-        )  # create a path '/path/to/data/trainA'
-        self.dir_B = os.path.join(
-            opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
-        )  # create a path '/path/to/data/trainB'
-        with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
-            data_groups = json.load(fp)
+        self.A_paths = []
+        self.B_paths = []
+        if opt.localisation == 'all':
+            for opt.localisation in ['ORL', 'Pelvis','Crane', 'Abdomen', 'Thorax', 'Sein'] :
+                self.dir_A = os.path.join(
+                    opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
+                )  # create a path '/path/to/data/trainA'
+                self.dir_B = os.path.join(
+                    opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
+                )  # create a path '/path/to/data/trainB'
+                with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+                    data_groups = json.load(fp)
 
-        """with open("../data_test_%s_%s.json" % (opt.datasplit, opt.localisation), "r") as fp:
-            test_group = json.load(fp)"""
+                """with open("../data_test_%s_%s.json" % (opt.datasplit, opt.localisation), "r") as fp:
+                    test_group = json.load(fp)"""
 
-        #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
-        list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
-        self.A_paths = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
-
-        list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
-        self.B_paths = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
+                #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
+                list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
+                path_A_loc = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
+                self.A_paths.extend(path_A_loc)
+                list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
+                path_B_loc = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
+                self.B_paths.extend(path_B_loc)
+            with open ('ll2.json', 'w') as file:
+                json.dump(self.A_paths, file)
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
             opt.max_dataset_size,
@@ -96,6 +103,8 @@ class UnalignedNumpyDataset(BaseDataset):
             self.B_paths,
             opt.max_dataset_size,
         )
+        with open ('llindex2.json', 'w') as file:
+            json.dump(self.A_index, file)
         btoA = self.opt.direction == "BtoA"
         input_nc = (
             self.opt.output_nc if btoA else self.opt.input_nc
