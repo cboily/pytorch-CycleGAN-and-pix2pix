@@ -42,12 +42,32 @@ def get_paths(list_scans,  data_groups,  opt):#data_group_to_exclude,test_group,
 def construct_index_list(paths, max_size):
     size = 0
     index_list = []
+    transform = Compose(
+            [
+                LoadNumpyArray(),
+                ScaleIntensityRange(
+                    a_min=-600.0,
+                    a_max=400.0,
+                    b_min=-1.0,
+                    b_max=1.0,
+                    clip=True,
+                ),
+                # ToTensor(),
+            ]
+        )
     for path in paths:
-        slices = int(path.split("_")[-1].split(".npy")[0])
+        body_pixels = 0
+        A_img = transform(path)
+        body_mask = A_img > -600
+        body_pixels = A_img[body_mask].numel()
+        #print('Body pixels', body_pixels)
+        size += body_pixels
+        print('Total pixels', size)
+        '''slices = int(path.split("_")[-1].split(".npy")[0])
         size += slices
         index_list.extend([(path, slice) for slice in range(slices)])
         if size > max_size:
-            break
+            break'''
     return index_list, size
 
 
@@ -74,22 +94,37 @@ class UnalignedNumpyDataset(BaseDataset):
         if opt.localisation == 'all':
             self.A_paths = []
             self.B_paths = []
-            for opt.localisation in ['ORL', 'Pelvis','Crane', 'Abdomen', 'Thorax', 'Sein'] :
-                self.dir_A = os.path.join(
-                    opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
-                )  # create a path '/path/to/data/trainA'
-                self.dir_B = os.path.join(
-                    opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
-                )  # create a path '/path/to/data/trainB'
-                with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
-                    data_groups = json.load(fp)
-                #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
-                list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
-                path_A_loc = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
-                self.A_paths.extend(path_A_loc)
-                list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
-                path_B_loc = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
-                self.B_paths.extend(path_B_loc)
+            nb_pixels_loc = {}
+            for opt.localisation in ['Crane', 'Abdomen', 'Thorax', 'Sein'] :#,'ORL', 'Pelvis'
+                if opt.localisation not in nb_pixels_loc:
+                    nb_pixels_loc[opt.localisation] = {}
+                for opt.datasplit in ['0.1_1','0.3_1','0.5_1', '0.8_1','adult']:
+                    if opt.datasplit not in nb_pixels_loc[opt.localisation]:
+                        nb_pixels_loc[opt.localisation][opt.datasplit] = []
+                    self.dir_A = os.path.join(
+                        opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
+                    )  # create a path '/path/to/data/trainA'
+                    self.dir_B = os.path.join(
+                        opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
+                    )  # create a path '/path/to/data/trainB'
+                    with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+                        data_groups = json.load(fp)
+                    #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
+                    list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
+                    path_A_loc = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
+                    self.A_index, self.A_size = construct_index_list(
+                        path_A_loc,
+                        opt.max_dataset_size,
+                        )
+                    print('Size pixels',self.A_size)
+                    nb_pixels_loc[opt.localisation][opt.datasplit].append(self.A_size)
+                    self.A_paths.extend(path_A_loc)
+                    list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
+                    path_B_loc = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
+                    self.B_paths.extend(path_B_loc)
+            log_name = os.path.join('../', "nb_body_pixels_loc_size_dataset.json")
+            with open(log_name, "w") as fp:
+                json.dump(nb_pixels_loc, fp, indent=4, sort_keys=True, default=str)
         else :
             self.dir_A = os.path.join(
                 opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
@@ -112,10 +147,12 @@ class UnalignedNumpyDataset(BaseDataset):
             self.A_paths,
             opt.max_dataset_size,
         )
-        self.B_index, self.B_size = construct_index_list(
+        print('Size pixels',self.A_size)
+        exit()
+        '''self.B_index, self.B_size = construct_index_list(
             self.B_paths,
             opt.max_dataset_size,
-        )
+        )'''
         btoA = self.opt.direction == "BtoA"
         input_nc = (
             self.opt.output_nc if btoA else self.opt.input_nc
