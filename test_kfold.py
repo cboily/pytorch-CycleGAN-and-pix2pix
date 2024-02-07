@@ -243,8 +243,8 @@ def calculate_metrics(fakeB, realB):
         result_data["background"] = back_fraction
         result_data["tissu"] = tissu_fraction
         result_data["bone"] = bone_fraction
-        #print('tissu',result_data["SSIM_tissu"].shape, result_data["SSIM_tissu"],'body', result_data["SSIM_body"].shape, result_data["SSIM_body"])
-        #print(result_data)
+        # print('tissu',result_data["SSIM_tissu"].shape, result_data["SSIM_tissu"],'body', result_data["SSIM_body"].shape, result_data["SSIM_body"])
+        # print(result_data)
     return result_data
 
 

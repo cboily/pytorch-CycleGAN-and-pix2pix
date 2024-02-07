@@ -66,9 +66,11 @@ class CycleGANModel(BaseModel):
         Parameters:
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
+        # with torch.profiler.profile(schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1), activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA], record_shapes=True) as prof:
+
         BaseModel.__init__(self, opt)
         print(self.isTrain)
-        print("\033[93m", opt)
+        # print("\033[93m", opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = [
             "D_A",
@@ -176,7 +178,7 @@ class CycleGANModel(BaseModel):
             )
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
-
+            # prof.export_chrome_trace("trace.json")
         """     def update_learning_rate(self):
                 lrd = self.opgit.lr / self.opt.n_epochs_decay
                 lr = self.old_lr - lrd

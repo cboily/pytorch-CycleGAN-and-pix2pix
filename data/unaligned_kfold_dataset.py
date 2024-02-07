@@ -65,9 +65,7 @@ def get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt):
             if any(str2 in str1 for str2 in data_groups[opt.fold])
         ]
     else:
-        return [
-            str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)
-        ]
+        return [str1 for str1 in list_scans if any(str2 in str1 for str2 in test_group)]
 
 
 def construct_index_list(paths, pixel_type, localisation, ct_type, max_size):
@@ -126,10 +124,14 @@ class UnalignedKFoldDataset(BaseDataset):
             test_group = json.load(fp)
         data_group_to_exclude = data_groups[opt.fold] + test_group
         list_scans = sorted(make_dataset(self.dir_A))
-        self.A_paths = get_paths(list_scans, data_group_to_exclude, data_groups, test_group, opt)
+        self.A_paths = get_paths(
+            list_scans, data_group_to_exclude, data_groups, test_group, opt
+        )
 
         list_scans_b = sorted(make_dataset(self.dir_B))
-        self.B_paths = get_paths(list_scans_b, data_group_to_exclude, data_groups, test_group, opt)
+        self.B_paths = get_paths(
+            list_scans_b, data_group_to_exclude, data_groups, test_group, opt
+        )
 
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,

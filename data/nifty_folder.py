@@ -44,10 +44,10 @@ def make_dataset_numpy(dir, max_dataset_size=float("inf")):
     images = []
     assert os.path.isdir(dir), "%s is not a valid directory" % dir
 
-    fnames=os.scandir(dir)
+    fnames = os.scandir(dir)
     for fname in fnames:
-            if is_numpy_file(fname.name):
-                images.append(fname.path)
+        if is_numpy_file(fname.name):
+            images.append(fname.path)
 
     return images[: min(max_dataset_size, len(images))]
 

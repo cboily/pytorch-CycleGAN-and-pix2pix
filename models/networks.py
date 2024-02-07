@@ -80,6 +80,7 @@ def get_scheduler(optimizer, opt):
         return NotImplementedError(
             "learning rate policy [%s] is not implemented", opt.lr_policy
         )
+    #print('Scheduler',scheduler.base_lrs,'last computed', scheduler.get_last_lr())
     return scheduler
 
 
