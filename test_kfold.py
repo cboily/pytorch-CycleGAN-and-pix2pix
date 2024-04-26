@@ -26,6 +26,7 @@ See options/base_options.py and options/test_options.py for more test options.
 See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/tips.md
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
+
 import os
 from pprint import pprint
 import SimpleITK as sitk
@@ -479,9 +480,10 @@ with torch.no_grad():
                 fakeA = out_transforms(visuals["fake_A"])
                 recB = out_transforms(visuals["rec_B"])
                 threshold_value = 150
-                bone_mask = realB >= threshold_value
-                fakeB_bone = fakeB * bone_mask
-                realB_bone = realB * bone_mask
+                bone_mask_real = realB >= threshold_value
+                bone_mask_fake = fakeB >= threshold_value
+                fakeB_bone = fakeB * bone_mask_fake
+                realB_bone = realB * bone_mask_real
                 if prev_patient_name is None:
                     prev_patient_name = patient_id
                 if patient_id != prev_patient_name:
@@ -522,9 +524,9 @@ with torch.no_grad():
                                     ],  # aligned_realB_array_full_t[:, :, slice, :, :],  #
                                 )
                                 if metrics_reg:
-                                    result_fold_reg[
-                                        stacked_name_file[slice]
-                                    ] = metrics_reg
+                                    result_fold_reg[stacked_name_file[slice]] = (
+                                        metrics_reg
+                                    )
                             else:
                                 print(
                                     "Error fraction:",
@@ -847,7 +849,7 @@ with torch.no_grad():
                     stacked_realBs_bone = stacked_realBs_bone[-2:]
                     stacked_name_file = stacked_name_file[-2:]
 
-                    """import plotly.graph_objs as go
+                """import plotly.graph_objs as go
                     from plotly.subplots import make_subplots
 
                     # Assuming aligned_fakeB_array is the NumPy array of the aligned fakeB image
