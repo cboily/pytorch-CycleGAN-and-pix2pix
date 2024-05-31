@@ -75,9 +75,14 @@ class UnalignedNumpyDataset(BaseDataset):
             self.A_paths = []
             self.B_paths = []
             for opt.localisation in ['ORL', 'Pelvis','Crane', 'Abdomen', 'Thorax', 'Sein'] :
+                '''if opt.localisation == "ORL" or opt.localisation == 'Pelvis':
+                    opt.dataroot = '../../../data/processed'
+                else:
+                    opt.dataroot = '/mnt/other_partition/data/processed/'''
                 self.dir_A = os.path.join(
                     opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
                 )  # create a path '/path/to/data/trainA'
+                print('Data path', self.dir_A)
                 self.dir_B = os.path.join(
                     opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
                 )  # create a path '/path/to/data/trainB'
@@ -95,7 +100,7 @@ class UnalignedNumpyDataset(BaseDataset):
                 opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
             )  # create a path '/path/to/data/trainA'
             self.dir_B = os.path.join(
-                opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
+                opt.dataroot, opt.localisation,"KVCT_npy"  # opt.phase + "B_npy" #_fitted test outpainting KVCT full FOV
             )  # create a path '/path/to/data/trainB'
             with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
                 data_groups = json.load(fp)
