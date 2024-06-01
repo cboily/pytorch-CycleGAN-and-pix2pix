@@ -9,7 +9,7 @@ from monai.transforms import (
 )
 from monai.transforms.transform import Transform
 from PIL import Image
-
+import random
 from data.base_dataset import BaseDataset, get_transform
 from data.nifty_folder import make_dataset_numpy
 
@@ -148,9 +148,12 @@ class UnalignedNumpyDataset(BaseDataset):
         index_A = index % self.A_size
         A_path = self.A_index[index_A][0]  # make sure index is within then range
         A_slice = self.A_index[index_A][1]
-        index_B = index % self.B_size
-        B_path = self.B_index[index_A][0]  # make sure index is within then range
-        B_slice = self.B_index[index_A][1]
+        if self.opt.serial_batches:   # make sure index is within then range
+            index_B = index % self.B_size
+        else:   # randomize the index for domain B to avoid fixed pairs.
+            index_B = random.randint(0, self.B_size - 1)
+        B_path = self.B_index[index_B][0]  # make sure index is within then range
+        B_slice = self.B_index[index_B][1]
         transform = Compose(
             [
                 LoadNumpyArray(),
