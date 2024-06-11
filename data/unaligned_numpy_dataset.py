@@ -100,7 +100,7 @@ class UnalignedNumpyDataset(BaseDataset):
                 opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
             )  # create a path '/path/to/data/trainA'
             self.dir_B = os.path.join(
-                opt.dataroot, opt.localisation,"KVCT_npy"  # opt.phase + "B_npy" #_fitted test outpainting KVCT full FOV
+                opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" # test outpainting KVCT full FOV
             )  # create a path '/path/to/data/trainB'
             with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
                 data_groups = json.load(fp)
