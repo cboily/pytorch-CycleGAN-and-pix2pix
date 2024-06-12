@@ -484,7 +484,7 @@ with torch.no_grad():
                 bone_mask_fake = fakeB >= threshold_value
                 fakeB_bone = fakeB * bone_mask_fake
                 realB_bone = realB * bone_mask_real
-                if prev_patient_name is None:
+                '''if prev_patient_name is None:
                     prev_patient_name = patient_id
                 if patient_id != prev_patient_name:
                     # Reset the stacked_fakeBs list when data_name changes
@@ -873,7 +873,7 @@ with torch.no_grad():
                     fig.show()
 
                     test= calculate_metrics(aligned_fakeB_array,sliding_stack_realB)#[0,:,:,:,:][0,:,:,:,:]
-                    print('Metrics sliding', test )"""
+                    print('Metrics sliding', test )"""'''
 
                 metrics = calculate_metrics(fakeB, realB)
                 # print("Sans recalage", data_name, metrics)
