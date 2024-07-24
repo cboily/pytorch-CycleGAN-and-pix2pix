@@ -86,7 +86,7 @@ class UnalignedNumpyDataset(BaseDataset):
                 self.dir_B = os.path.join(
                     opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
                 )  # create a path '/path/to/data/trainB'
-                with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+                with open("../datalist/data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
                     data_groups = json.load(fp)
                 #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
                 list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
@@ -102,7 +102,7 @@ class UnalignedNumpyDataset(BaseDataset):
             self.dir_B = os.path.join(
                 opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" # test outpainting KVCT full FOV
             )  # create a path '/path/to/data/trainB'
-            with open("../data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+            with open("../datalist/data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
                 data_groups = json.load(fp)
 
             """with open("../data_test_%s_%s.json" % (opt.datasplit, opt.localisation), "r") as fp:
