@@ -157,7 +157,7 @@ class UnalignedNumpyDataset(BaseDataset):
                 ScaleIntensityRange(
                     a_min=-600.0,
                     a_max=400.0,
-                    b_min=-1.0,
+                    b_min=0.0,
                     b_max=1.0,
                     clip=True,
                 ),
