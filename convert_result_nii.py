@@ -55,8 +55,8 @@ localization = args.localization
 "ORL"
 globResult = sorted(
     insensitive_glob(
-        "results/{}/test_latest/images/*.nii_fake_B.png".format(model_name)
-    )
+        "{}/*_fake_B_outpainted.png".format(model_name)
+    )  # results/{}/test_latest/images/*_fake_B.png
 )
 previousfile = ""
 for file in globResult:
@@ -72,11 +72,7 @@ print(patient_list)
 
 for patient in patient_list:
     globPatient = sorted(
-        insensitive_glob(
-            "results/{}/test_latest/images/{}*.nii_fake_B.png".format(
-                model_name, patient
-            )
-        )
+        insensitive_glob("{}/{}*_fake_B_outpainted.png".format(model_name, patient))
     )
     kvct_path = (
         "../../../data/processed/{}/KVCT_fitted/{}-fitted_mask_kvct.nii.gz".format(
@@ -88,21 +84,22 @@ for patient in patient_list:
     volume_patient = np.empty([nb_slices[2], nb_slices[0], nb_slices[1]])
     for files in globPatient:
         print(files)
-        slice_nb = int(os.path.split(files)[1].split(".")[0].split("_")[1])
+        slice_nb = int(os.path.split(files)[1].split(".")[0].split("_")[2])
         imgi = Image.open(files)
         slice = np.asarray(imgi)
-        slice = scaleIntensityRange(slice, a_min=0, a_max=255, b_min=-600, b_max=400)
+        # breakpoint()
+        slice = scaleIntensityRange(
+            slice, a_min=0, a_max=255, b_min=-160, b_max=240
+        )  # -600, b_max=400 cyclegan
         # print(slice.shape, slice[0, 0, :])
         print("Slice", slice.min(), slice.max(), slice.shape)
-        volume_patient[slice_nb, :, :] = slice[:, :, 0]
+        volume_patient[slice_nb, :, :] = slice[:, :]
         print("Volume", volume_patient.min(), volume_patient.max())
 
     img = sitk.GetImageFromArray(volume_patient)
     img.CopyInformation(srcImage=kv_source_image)
     # print(img.GetSpacing())
-    saveresult = "results/{}/test_latest/images/{}_fake_B.nii.gz".format(
-        model_name, patient
-    )
+    saveresult = "{}/{}_fake_B_outpainted.nii.gz".format(model_name, patient)
     sitk.WriteImage(img, saveresult)
 """
     
