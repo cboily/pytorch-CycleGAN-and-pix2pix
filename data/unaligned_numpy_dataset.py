@@ -22,13 +22,11 @@ class LoadNumpyArray(Transform):
         return np.load(path)
 
 
-def get_paths(list_scans,  data_groups,  opt):#data_group_to_exclude,test_group,
+def get_paths(list_scans, data_groups, opt):  # data_group_to_exclude,test_group,
     if opt.isTrain is True:
         return [
-            str1
-            for str1 in list_scans
-            if  any(str2 in str1 for str2 in data_groups)
-        ]#_to_exclude
+            str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
+        ]  # _to_exclude
     if hasattr(opt, "validation") is True:
         return [
             str1
@@ -36,7 +34,9 @@ def get_paths(list_scans,  data_groups,  opt):#data_group_to_exclude,test_group,
             if any(str2 in str1 for str2 in data_groups[opt.fold])
         ]
     else:
-        return [str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)]#test_group
+        return [
+            str1 for str1 in list_scans if any(str2 in str1 for str2 in data_groups)
+        ]  # test_group
 
 
 def construct_index_list(paths, max_size):
@@ -70,49 +70,76 @@ class UnalignedNumpyDataset(BaseDataset):
         """
         BaseDataset.__init__(self, opt)
         self.pixel_type = itk.F
-        
-        if opt.localisation == 'all':
+
+        if opt.localisation == "all":
             self.A_paths = []
             self.B_paths = []
-            for opt.localisation in ['ORL', 'Pelvis','Crane', 'Abdomen', 'Thorax', 'Sein'] :
-                '''if opt.localisation == "ORL" or opt.localisation == 'Pelvis':
+            for opt.localisation in [
+                "ORL",
+                "Pelvis",
+                "Crane",
+                "Abdomen",
+                "Thorax",
+                "Sein",
+            ]:
+                """if opt.localisation == "ORL" or opt.localisation == 'Pelvis':
                     opt.dataroot = '../../../data/processed'
                 else:
-                    opt.dataroot = '/mnt/other_partition/data/processed/'''
+                    opt.dataroot = '/mnt/other_partition/data/processed/"""
                 self.dir_A = os.path.join(
                     opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
                 )  # create a path '/path/to/data/trainA'
-                print('Data path', self.dir_A)
+                print("Data path", self.dir_A)
                 self.dir_B = os.path.join(
-                    opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" #
+                    opt.dataroot,
+                    opt.localisation,
+                    "KVCT_fitted_npy",  # opt.phase + "B_npy" #
                 )  # create a path '/path/to/data/trainB'
-                with open("../datalist/data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+                with open(
+                    "../datalist/data_%s_%s_%s.json"
+                    % (opt.phase, opt.datasplit, opt.localisation),
+                    "r",
+                ) as fp:
                     data_groups = json.load(fp)
-                #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
-                list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
-                path_A_loc = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
+                # data_group_to_exclude =  test_group#+ data_groups[opt.fold]
+                list_scans = sorted(make_dataset_numpy(self.dir_A))  # self.A_paths
+                path_A_loc = get_paths(
+                    list_scans, data_groups, opt
+                )  # data_group_to_exclude,test_group,
                 self.A_paths.extend(path_A_loc)
-                list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
-                path_B_loc = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
+                list_scans_b = sorted(make_dataset_numpy(self.dir_B))  # self.B_paths
+                path_B_loc = get_paths(
+                    list_scans_b, data_groups, opt
+                )  # data_group_to_exclude,test_group,
                 self.B_paths.extend(path_B_loc)
-        else :
+        else:
             self.dir_A = os.path.join(
                 opt.dataroot, opt.localisation, "MVCT_npy"  # opt.phase + "A_npy" #
             )  # create a path '/path/to/data/trainA'
             self.dir_B = os.path.join(
-                opt.dataroot, opt.localisation,"KVCT_fitted_npy"  # opt.phase + "B_npy" # test outpainting KVCT full FOV
+                opt.dataroot,
+                opt.localisation,
+                "KVCT_fitted_npy",  # opt.phase + "B_npy" # test outpainting KVCT full FOV
             )  # create a path '/path/to/data/trainB'
-            with open("../datalist/data_%s_%s_%s.json" % (opt.phase,opt.datasplit,opt.localisation), "r") as fp:
+            with open(
+                "../datalist/data_%s_%s_%s.json"
+                % (opt.phase, opt.datasplit, opt.localisation),
+                "r",
+            ) as fp:
                 data_groups = json.load(fp)
 
             """with open("../data_test_%s_%s.json" % (opt.datasplit, opt.localisation), "r") as fp:
                 test_group = json.load(fp)"""
 
-            #data_group_to_exclude =  test_group#+ data_groups[opt.fold]
-            list_scans = sorted(make_dataset_numpy(self.dir_A))# self.A_paths
-            self.A_paths = get_paths(list_scans,  data_groups,  opt)#data_group_to_exclude,test_group,
-            list_scans_b = sorted(make_dataset_numpy(self.dir_B))# self.B_paths
-            self.B_paths = get_paths(list_scans_b, data_groups,  opt) #data_group_to_exclude,test_group,
+            # data_group_to_exclude =  test_group#+ data_groups[opt.fold]
+            list_scans = sorted(make_dataset_numpy(self.dir_A))  # self.A_paths
+            self.A_paths = get_paths(
+                list_scans, data_groups, opt
+            )  # data_group_to_exclude,test_group,
+            list_scans_b = sorted(make_dataset_numpy(self.dir_B))  # self.B_paths
+            self.B_paths = get_paths(
+                list_scans_b, data_groups, opt
+            )  # data_group_to_exclude,test_group,
         self.A_index, self.A_size = construct_index_list(
             self.A_paths,
             opt.max_dataset_size,
@@ -148,7 +175,7 @@ class UnalignedNumpyDataset(BaseDataset):
         index_A = index % self.A_size
         A_path = self.A_index[index_A][0]  # make sure index is within then range
         A_slice = self.A_index[index_A][1]
-        index_B = index % self.B_size
+        # index_B = index % self.B_size
         B_path = self.B_index[index_A][0]  # make sure index is within then range
         B_slice = self.B_index[index_A][1]
         transform = Compose(
@@ -164,6 +191,7 @@ class UnalignedNumpyDataset(BaseDataset):
                 # ToTensor(),
             ]
         )
+        breakpoint()
         A_img = transform(A_path)[A_slice, :, :]
         B_img = transform(B_path)[B_slice, :, :]
         im = Image.fromarray(np.uint8(cm.gist_earth(A_img) * 255))
