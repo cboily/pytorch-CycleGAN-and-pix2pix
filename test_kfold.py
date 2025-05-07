@@ -136,7 +136,21 @@ def calculate_metrics(fakeB, realB):
     back_fraction = np.mean(background_mask == 1)
     tissu_fraction = np.mean(tissu_mask == 1)
     bone_fraction = np.mean(bone_mask == 1)
+    """ plt.figure(figsize=(10, 10))
+    plt.imshow(realB[0, 0, :, :].cpu(), cmap="gray", interpolation="none")
+    plt.imshow(
+        background_mask[0, 0, :, :].cpu(), cmap="Reds", alpha=0.3, interpolation="none"
+    )
 
+    plt.imshow(
+        tissu_mask[0, 0, :, :].cpu(), cmap="Greens", alpha=0.3, interpolation="none"
+    )
+
+    plt.imshow(
+        bone_mask[0, 0, :, :].cpu(), cmap="Blues", alpha=0.3, interpolation="none"
+    )
+    plt.axis("off")
+    plt.show() """
     """print(
         "background",
         back_fraction,
@@ -466,7 +480,7 @@ with torch.no_grad():
                 out_transforms = Compose(
                     [
                         ScaleIntensityRange(
-                            a_min=-1.0,
+                            a_min=0.0,#-1.0,
                             a_max=1.0,
                             b_min=-600.0,
                             b_max=400.0,
@@ -474,16 +488,16 @@ with torch.no_grad():
                         ),
                     ]
                 )
-                fakeB = out_transforms(visuals["fake_B"])
-                realB = out_transforms(visuals["real_B"])
-                realA = out_transforms(visuals["real_A"])
-                fakeA = out_transforms(visuals["fake_A"])
-                recB = out_transforms(visuals["rec_B"])
+                fake = out_transforms(visuals["fake"])
+                real = out_transforms(visuals["real"])
+                #realA = out_transforms(visuals["real_A"])
+                #fakeA = out_transforms(visuals["fake_A"])
+                #recB = out_transforms(visuals["rec_B"])
                 threshold_value = 150
-                bone_mask_real = realB >= threshold_value
-                bone_mask_fake = fakeB >= threshold_value
-                fakeB_bone = fakeB * bone_mask_fake
-                realB_bone = realB * bone_mask_real
+                bone_mask_real = real >= threshold_value
+                bone_mask_fake = fake >= threshold_value
+                fakeB_bone = fake * bone_mask_fake
+                realB_bone = real * bone_mask_real
                 '''if prev_patient_name is None:
                     prev_patient_name = patient_id
                 if patient_id != prev_patient_name:
@@ -875,16 +889,16 @@ with torch.no_grad():
                     test= calculate_metrics(aligned_fakeB_array,sliding_stack_realB)#[0,:,:,:,:][0,:,:,:,:]
                     print('Metrics sliding', test )"""'''
 
-                metrics = calculate_metrics(fakeB, realB)
+                metrics = calculate_metrics(fake, real)
                 # print("Sans recalage", data_name, metrics)
                 if metrics:
                     result_fold[data_name] = metrics
                     # print("before mv process", result_fold[data_name])
-                    result_fold_mv[data_name] = calculate_metrics(realA, realB)
+                    """ result_fold_mv[data_name] = calculate_metrics(realA, realB)
                     # print("MV metrics", result_fold_mv[data_name])
                     result_fold_ana[data_name] = calculate_metrics(recB, realB)
                     # print("Ana kv", result_fold_ana[data_name])
-                    result_fold_ana_mv[data_name] = calculate_metrics(fakeA, realB)
+                    result_fold_ana_mv[data_name] = calculate_metrics(fakeA, realB) """
                     # print("Ana MV", result_fold_ana_mv[data_name])
                 else:
                     print("metrics empty", data_name)
@@ -892,8 +906,8 @@ with torch.no_grad():
                 img_path = model.get_image_paths()  # get image paths
                 if i % 5 == 0:  # save images to an HTML file
                     print("processing (%04d)-th image... %s" % (i, img_path))
-                if 1000 < i < 1200 or 5000 < i < 5200 or 10000 < i < 10200:
-                    save_images(
+                #if 1000 < i < 1200 or 5000 < i < 5200 or 10000 < i < 10200:
+                save_images(
                         webpage,
                         visuals,
                         img_path,
@@ -903,15 +917,15 @@ with torch.no_grad():
                     )
 
             result[k].append(result_fold)
-            result_mv[k].append(result_fold_mv)
+            """ result_mv[k].append(result_fold_mv)
             result_ana[k].append(result_fold_ana)
             result_ana_mv[k].append(result_fold_ana_mv)
-            result_reg[k].append(result_fold_reg)
+            result_reg[k].append(result_fold_reg) """
             webpage.save()  # save the HTML
         log_name = os.path.join(web_dir, "metric_log_fold.json")
         with open(log_name, "w") as fp:
             json.dump(result, fp, indent=4, sort_keys=True, default=str)
-        log_name_mv = os.path.join(web_dir, "metric_mv_log_fold.json")
+        """ log_name_mv = os.path.join(web_dir, "metric_mv_log_fold.json")
         with open(log_name_mv, "w") as fp:
             json.dump(result_mv, fp, indent=4, sort_keys=True, default=str)
         log_name_ana = os.path.join(web_dir, "metric_ana_log_fold.json")
@@ -922,7 +936,7 @@ with torch.no_grad():
             json.dump(result_ana_mv, fp, indent=4, sort_keys=True, default=str)
         log_name_reg = os.path.join(web_dir, "metric_reg_log_fold.json")
         with open(log_name_reg, "w") as fp:
-            json.dump(result_reg, fp, indent=4, sort_keys=True, default=str)
+            json.dump(result_reg, fp, indent=4, sort_keys=True, default=str) """
         # Write the results to a JSON file
         log_name = os.path.join(web_dir, "metric_means_by_k.json")
         log_name_mv = os.path.join(web_dir, "metric_mv_means_by_k.json")
@@ -931,7 +945,7 @@ with torch.no_grad():
             json.dump(
                 rank_data_by_metrics(calculate_mean_metrics(result)), file, indent=4
             )
-        with open(log_name_mv, "w") as file:
+        """ with open(log_name_mv, "w") as file:
             json.dump(calculate_mean_metrics(result_mv), file, indent=4)
         log_name_ana = os.path.join(web_dir, "metric_ana_means_by_k.json")
         with open(log_name_ana, "w") as file:
@@ -943,5 +957,5 @@ with torch.no_grad():
             json.dump(calculate_mean_metrics(result_ana_mv), file, indent=4)
         log_name_reg = os.path.join(web_dir, "metric_reg_means_by_k.json")
         with open(log_name_reg, "w") as file:
-            json.dump(calculate_mean_metrics(result_reg), file, indent=4)
+            json.dump(calculate_mean_metrics(result_reg), file, indent=4) """
         print("Results have been written to 'metric_log_fold.json'.")
